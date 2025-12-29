@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, Clock, CheckCircle, AlertCircle, Eye } from 'lucide-react';
+import toast from 'react-hot-toast';
 import Modal from '../../components/Modal';
 import api from '../../services/api';
 
@@ -42,12 +43,13 @@ export default function MyRequests() {
     e.preventDefault();
     try {
       await api.post('/my/requests', formData);
+      toast.success('Request submitted successfully');
       fetchRequests();
       setIsModalOpen(false);
       setFormData({ type: 'certificate', subject: '', description: '' });
     } catch (error) {
       console.error('Error creating request:', error);
-      alert('Error submitting request. Please try again.');
+      toast.error(error.response?.data?.message || 'Error submitting request. Please try again.');
     }
   };
 

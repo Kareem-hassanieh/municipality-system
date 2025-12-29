@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Plus, Search, Edit, Trash2, Eye } from 'lucide-react';
+import toast from 'react-hot-toast';
 import Modal from '../components/Modal';
+import ConfirmDialog from '../components/ConfirmDialog';
 import api from '../services/api';
 
 export default function Citizens() {
@@ -10,6 +12,8 @@ export default function Citizens() {
   const [statusFilter, setStatusFilter] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
   const [editingCitizen, setEditingCitizen] = useState(null);
   const [viewingCitizen, setViewingCitizen] = useState(null);
   const [formData, setFormData] = useState({
@@ -83,26 +87,32 @@ export default function Citizens() {
     try {
       if (editingCitizen) {
         await api.put(`/citizens/${editingCitizen.id}`, formData);
+        toast.success('Citizen updated successfully');
       } else {
         await api.post('/citizens', formData);
+        toast.success('Citizen added successfully');
       }
       fetchCitizens();
       setIsModalOpen(false);
     } catch (error) {
       console.error('Error saving citizen:', error);
-      alert('Error saving citizen. Please try again.');
+      toast.error(error.response?.data?.message || 'Error saving citizen. Please try again.');
     }
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this citizen?')) {
-      try {
-        await api.delete(`/citizens/${id}`);
-        fetchCitizens();
-      } catch (error) {
-        console.error('Error deleting citizen:', error);
-        alert('Error deleting citizen. Please try again.');
-      }
+  const handleDeleteClick = (id) => {
+    setDeletingId(id);
+    setIsConfirmOpen(true);
+  };
+
+  const handleDelete = async () => {
+    try {
+      await api.delete(`/citizens/${deletingId}`);
+      toast.success('Citizen deleted successfully');
+      fetchCitizens();
+    } catch (error) {
+      console.error('Error deleting citizen:', error);
+      toast.error(error.response?.data?.message || 'Error deleting citizen. Please try again.');
     }
   };
 
@@ -187,7 +197,7 @@ export default function Citizens() {
                       <div className="flex items-center justify-end gap-2">
                         <button onClick={() => openViewModal(citizen)} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600"><Eye className="w-4 h-4" /></button>
                         <button onClick={() => openEditModal(citizen)} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600"><Edit className="w-4 h-4" /></button>
-                        <button onClick={() => handleDelete(citizen.id)} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+                        <button onClick={() => handleDeleteClick(citizen.id)} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
                       </div>
                     </td>
                   </tr>
@@ -275,6 +285,15 @@ export default function Citizens() {
           </div>
         )}
       </Modal>
+
+      {/* Confirm Delete Dialog */}
+      <ConfirmDialog
+        isOpen={isConfirmOpen}
+        onClose={() => setIsConfirmOpen(false)}
+        onConfirm={handleDelete}
+        title="Delete Citizen"
+        message="Are you sure you want to delete this citizen? This action cannot be undone."
+      />
     </div>
   );
 }

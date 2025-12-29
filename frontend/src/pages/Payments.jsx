@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, Search, Eye, Download } from 'lucide-react';
+import toast from 'react-hot-toast';
 import Modal from '../components/Modal';
 import api from '../services/api';
 
@@ -70,11 +71,12 @@ export default function Payments() {
         due_date: formData.due_date || null,
       };
       await api.post('/payments', dataToSend);
+      toast.success('Payment recorded successfully');
       fetchPayments();
       setIsModalOpen(false);
     } catch (error) {
       console.error('Error saving payment:', error);
-      alert('Error saving payment. Please try again.');
+      toast.error(error.response?.data?.message || 'Error saving payment. Please try again.');
     }
   };
 

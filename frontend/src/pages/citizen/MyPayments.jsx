@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { CreditCard, Download, CheckCircle } from 'lucide-react';
+import toast from 'react-hot-toast';
 import Modal from '../../components/Modal';
 import api from '../../services/api';
 
@@ -9,7 +10,6 @@ export default function MyPayments() {
   const [filter, setFilter] = useState('all');
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
   const [payingItem, setPayingItem] = useState(null);
-  const [paymentSuccess, setPaymentSuccess] = useState(false);
 
   useEffect(() => {
     fetchPayments();
@@ -51,13 +51,12 @@ export default function MyPayments() {
       await api.post(`/my/payments/${payingItem.id}/pay`, {
         payment_method: 'card'
       });
+      toast.success('Payment completed successfully');
       setIsPayModalOpen(false);
-      setPaymentSuccess(true);
       fetchPayments();
-      setTimeout(() => setPaymentSuccess(false), 3000);
     } catch (error) {
       console.error('Error processing payment:', error);
-      alert('Error processing payment. Please try again.');
+      toast.error(error.response?.data?.message || 'Error processing payment. Please try again.');
     }
   };
 
@@ -84,13 +83,6 @@ export default function MyPayments() {
 
   return (
     <div className="space-y-6">
-      {paymentSuccess && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 flex items-center gap-3">
-          <CheckCircle className="w-5 h-5 text-emerald-600" />
-          <span className="text-emerald-800">Payment completed successfully!</span>
-        </div>
-      )}
-
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>

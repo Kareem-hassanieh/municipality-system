@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Plus, Search, Eye, Edit, Trash2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import Modal from '../components/Modal';
+import ConfirmDialog from '../components/ConfirmDialog';
 import api from '../services/api';
 
 export default function Requests() {
@@ -11,6 +13,8 @@ export default function Requests() {
   const [statusFilter, setStatusFilter] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
   const [editingRequest, setEditingRequest] = useState(null);
   const [viewingRequest, setViewingRequest] = useState(null);
   const [formData, setFormData] = useState({
@@ -73,26 +77,32 @@ export default function Requests() {
     try {
       if (editingRequest) {
         await api.put(`/requests/${editingRequest.id}`, formData);
+        toast.success('Request updated successfully');
       } else {
         await api.post('/requests', formData);
+        toast.success('Request created successfully');
       }
       fetchRequests();
       setIsModalOpen(false);
     } catch (error) {
       console.error('Error saving request:', error);
-      alert('Error saving request. Please try again.');
+      toast.error(error.response?.data?.message || 'Error saving request. Please try again.');
     }
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this request?')) {
-      try {
-        await api.delete(`/requests/${id}`);
-        fetchRequests();
-      } catch (error) {
-        console.error('Error deleting request:', error);
-        alert('Error deleting request. Please try again.');
-      }
+  const handleDeleteClick = (id) => {
+    setDeletingId(id);
+    setIsConfirmOpen(true);
+  };
+
+  const handleDelete = async () => {
+    try {
+      await api.delete(`/requests/${deletingId}`);
+      toast.success('Request deleted successfully');
+      fetchRequests();
+    } catch (error) {
+      console.error('Error deleting request:', error);
+      toast.error(error.response?.data?.message || 'Error deleting request. Please try again.');
     }
   };
 
@@ -208,7 +218,7 @@ export default function Requests() {
                       <div className="flex items-center justify-end gap-2">
                         <button onClick={() => openViewModal(request)} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600"><Eye className="w-4 h-4" /></button>
                         <button onClick={() => openEditModal(request)} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600"><Edit className="w-4 h-4" /></button>
-                        <button onClick={() => handleDelete(request.id)} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+                        <button onClick={() => handleDeleteClick(request.id)} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
                       </div>
                     </td>
                   </tr>
@@ -296,6 +306,15 @@ export default function Requests() {
           </div>
         )}
       </Modal>
+
+      {/* Confirm Delete Dialog */}
+      <ConfirmDialog
+        isOpen={isConfirmOpen}
+        onClose={() => setIsConfirmOpen(false)}
+        onConfirm={handleDelete}
+        title="Delete Request"
+        message="Are you sure you want to delete this request? This action cannot be undone."
+      />
     </div>
   );
 }

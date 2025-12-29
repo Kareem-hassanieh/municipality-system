@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { User, Mail, Phone, MapPin, Calendar, CheckCircle, Shield } from 'lucide-react';
+import toast from 'react-hot-toast';
 import api from '../../services/api';
 
 export default function MyProfile() {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -44,11 +44,10 @@ export default function MyProfile() {
       const response = await api.put('/my/profile', formData);
       setProfile(response.data);
       setIsEditing(false);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
+      toast.success('Profile updated successfully');
     } catch (error) {
       console.error('Error saving profile:', error);
-      alert('Error saving profile. Please try again.');
+      toast.error(error.response?.data?.message || 'Error saving profile. Please try again.');
     }
   };
 
@@ -73,13 +72,6 @@ export default function MyProfile() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      {saved && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 flex items-center gap-3">
-          <CheckCircle className="w-5 h-5 text-emerald-600" />
-          <span className="text-emerald-800">Profile updated successfully!</span>
-        </div>
-      )}
-
       {/* Header */}
       <div className="bg-white rounded-lg border border-slate-200 p-6">
         <div className="flex items-center justify-between mb-6">

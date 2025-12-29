@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, Eye, Download, FileText } from 'lucide-react';
+import toast from 'react-hot-toast';
 import Modal from '../../components/Modal';
 import api from '../../services/api';
 
@@ -45,12 +46,13 @@ export default function MyPermits() {
     e.preventDefault();
     try {
       await api.post('/my/permits', formData);
+      toast.success('Permit application submitted successfully');
       fetchPermits();
       setIsModalOpen(false);
       setFormData({ type: 'business', title: '', description: '' });
     } catch (error) {
       console.error('Error applying for permit:', error);
-      alert('Error submitting application. Please try again.');
+      toast.error(error.response?.data?.message || 'Error submitting application. Please try again.');
     }
   };
 

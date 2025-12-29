@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Plus, Search, Eye, Edit, Trash2, Calendar, MapPin, Users } from 'lucide-react';
+import toast from 'react-hot-toast';
 import Modal from '../components/Modal';
+import ConfirmDialog from '../components/ConfirmDialog';
 import api from '../services/api';
 
 export default function Events() {
@@ -10,6 +12,8 @@ export default function Events() {
   const [typeFilter, setTypeFilter] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
   const [editingEvent, setEditingEvent] = useState(null);
   const [viewingEvent, setViewingEvent] = useState(null);
   const [formData, setFormData] = useState({
@@ -89,21 +93,26 @@ export default function Events() {
       }
       fetchEvents();
       setIsModalOpen(false);
+      toast.success(editingEvent ? 'Event updated successfully' : 'Event created successfully');
     } catch (error) {
       console.error('Error saving event:', error);
-      alert('Error saving event. Please try again.');
+      toast.error(error.response?.data?.message || 'Error saving event. Please try again.');
     }
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this event?')) {
-      try {
-        await api.delete(`/events/${id}`);
-        fetchEvents();
-      } catch (error) {
-        console.error('Error deleting event:', error);
-        alert('Error deleting event. Please try again.');
-      }
+  const handleDeleteClick = (id) => {
+    setDeletingId(id);
+    setIsConfirmOpen(true);
+  };
+
+  const handleDelete = async () => {
+    try {
+      await api.delete(`/events/${deletingId}`);
+      toast.success('Event deleted successfully');
+      fetchEvents();
+    } catch (error) {
+      console.error('Error deleting event:', error);
+      toast.error(error.response?.data?.message || 'Error deleting event. Please try again.');
     }
   };
 
@@ -198,7 +207,7 @@ export default function Events() {
                 <button onClick={() => openEditModal(event)} className="p-1.5 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600">
                   <Edit className="w-4 h-4" />
                 </button>
-                <button onClick={() => handleDelete(event.id)} className="p-1.5 hover:bg-slate-100 rounded text-slate-400 hover:text-red-600">
+                <button onClick={() => handleDeleteClick(event.id)} className="p-1.5 hover:bg-slate-100 rounded text-slate-400 hover:text-red-600">
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
@@ -297,6 +306,15 @@ export default function Events() {
           </div>
         )}
       </Modal>
+
+      {/* Confirm Delete Dialog */}
+      <ConfirmDialog
+        isOpen={isConfirmOpen}
+        onClose={() => setIsConfirmOpen(false)}
+        onConfirm={handleDelete}
+        title="Delete Event"
+        message="Are you sure you want to delete this event? This action cannot be undone."
+      />
     </div>
   );
 }

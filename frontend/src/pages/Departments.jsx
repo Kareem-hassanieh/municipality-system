@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Plus, Search, Edit, Trash2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import Modal from '../components/Modal';
+import ConfirmDialog from '../components/ConfirmDialog';
 import api from '../services/api';
 
 export default function Departments() {
@@ -8,6 +10,8 @@ export default function Departments() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
   const [editingDepartment, setEditingDepartment] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -61,26 +65,32 @@ export default function Departments() {
     try {
       if (editingDepartment) {
         await api.put(`/departments/${editingDepartment.id}`, formData);
+        toast.success('Department updated successfully');
       } else {
         await api.post('/departments', formData);
+        toast.success('Department added successfully');
       }
       fetchDepartments();
       setIsModalOpen(false);
     } catch (error) {
       console.error('Error saving department:', error);
-      alert('Error saving department. Please try again.');
+      toast.error(error.response?.data?.message || 'Error saving department. Please try again.');
     }
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this department?')) {
-      try {
-        await api.delete(`/departments/${id}`);
-        fetchDepartments();
-      } catch (error) {
-        console.error('Error deleting department:', error);
-        alert('Error deleting department. Please try again.');
-      }
+  const handleDeleteClick = (id) => {
+    setDeletingId(id);
+    setIsConfirmOpen(true);
+  };
+
+  const handleDelete = async () => {
+    try {
+      await api.delete(`/departments/${deletingId}`);
+      toast.success('Department deleted successfully');
+      fetchDepartments();
+    } catch (error) {
+      console.error('Error deleting department:', error);
+      toast.error(error.response?.data?.message || 'Error deleting department. Please try again.');
     }
   };
 
@@ -165,7 +175,7 @@ export default function Departments() {
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => handleDelete(dept.id)}
+                          onClick={() => handleDeleteClick(dept.id)}
                           className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-red-600"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -266,6 +276,15 @@ export default function Departments() {
           </div>
         </form>
       </Modal>
+
+      {/* Confirm Delete Dialog */}
+      <ConfirmDialog
+        isOpen={isConfirmOpen}
+        onClose={() => setIsConfirmOpen(false)}
+        onConfirm={handleDelete}
+        title="Delete Department"
+        message="Are you sure you want to delete this department? This action cannot be undone."
+      />
     </div>
   );
 }

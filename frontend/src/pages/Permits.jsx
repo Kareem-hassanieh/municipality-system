@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Plus, Search, Eye, Edit, Trash2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import Modal from '../components/Modal';
+import ConfirmDialog from '../components/ConfirmDialog';
 import api from '../services/api';
 
 export default function Permits() {
@@ -11,6 +13,8 @@ export default function Permits() {
   const [statusFilter, setStatusFilter] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
   const [editingPermit, setEditingPermit] = useState(null);
   const [viewingPermit, setViewingPermit] = useState(null);
   const [formData, setFormData] = useState({
@@ -86,21 +90,26 @@ export default function Permits() {
       }
       fetchPermits();
       setIsModalOpen(false);
+      toast.success(editingPermit ? 'Permit updated successfully' : 'Permit created successfully');
     } catch (error) {
       console.error('Error saving permit:', error);
-      alert('Error saving permit. Please try again.');
+      toast.error(error.response?.data?.message || 'Error saving permit. Please try again.');
     }
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this permit?')) {
-      try {
-        await api.delete(`/permits/${id}`);
-        fetchPermits();
-      } catch (error) {
-        console.error('Error deleting permit:', error);
-        alert('Error deleting permit. Please try again.');
-      }
+  const handleDeleteClick = (id) => {
+    setDeletingId(id);
+    setIsConfirmOpen(true);
+  };
+
+  const handleDelete = async () => {
+    try {
+      await api.delete(`/permits/${deletingId}`);
+      toast.success('Permit deleted successfully');
+      fetchPermits();
+    } catch (error) {
+      console.error('Error deleting permit:', error);
+      toast.error(error.response?.data?.message || 'Error deleting permit. Please try again.');
     }
   };
 
@@ -205,7 +214,7 @@ export default function Permits() {
                       <div className="flex items-center justify-end gap-2">
                         <button onClick={() => openViewModal(permit)} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600"><Eye className="w-4 h-4" /></button>
                         <button onClick={() => openEditModal(permit)} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600"><Edit className="w-4 h-4" /></button>
-                        <button onClick={() => handleDelete(permit.id)} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+                        <button onClick={() => handleDeleteClick(permit.id)} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
                       </div>
                     </td>
                   </tr>
@@ -291,6 +300,15 @@ export default function Permits() {
           </div>
         )}
       </Modal>
+
+      {/* Confirm Delete Dialog */}
+      <ConfirmDialog
+        isOpen={isConfirmOpen}
+        onClose={() => setIsConfirmOpen(false)}
+        onConfirm={handleDelete}
+        title="Delete Permit"
+        message="Are you sure you want to delete this permit? This action cannot be undone."
+      />
     </div>
   );
 }

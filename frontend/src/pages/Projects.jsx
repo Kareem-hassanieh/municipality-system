@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Plus, Search, Eye, Edit, Trash2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import Modal from '../components/Modal';
+import ConfirmDialog from '../components/ConfirmDialog';
 import api from '../services/api';
 
 export default function Projects() {
@@ -11,6 +13,8 @@ export default function Projects() {
   const [statusFilter, setStatusFilter] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
   const [editingProject, setEditingProject] = useState(null);
   const [viewingProject, setViewingProject] = useState(null);
   const [formData, setFormData] = useState({
@@ -97,21 +101,26 @@ export default function Projects() {
       }
       fetchProjects();
       setIsModalOpen(false);
+      toast.success(editingProject ? 'Project updated successfully' : 'Project created successfully');
     } catch (error) {
       console.error('Error saving project:', error);
-      alert('Error saving project. Please try again.');
+      toast.error(error.response?.data?.message || 'Error saving project. Please try again.');
     }
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this project?')) {
-      try {
-        await api.delete(`/projects/${id}`);
-        fetchProjects();
-      } catch (error) {
-        console.error('Error deleting project:', error);
-        alert('Error deleting project. Please try again.');
-      }
+  const handleDeleteClick = (id) => {
+    setDeletingId(id);
+    setIsConfirmOpen(true);
+  };
+
+  const handleDelete = async () => {
+    try {
+      await api.delete(`/projects/${deletingId}`);
+      toast.success('Project deleted successfully');
+      fetchProjects();
+    } catch (error) {
+      console.error('Error deleting project:', error);
+      toast.error(error.response?.data?.message || 'Error deleting project. Please try again.');
     }
   };
 
@@ -222,7 +231,7 @@ export default function Projects() {
                 <button onClick={() => openEditModal(project)} className="p-1.5 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600">
                   <Edit className="w-4 h-4" />
                 </button>
-                <button onClick={() => handleDelete(project.id)} className="p-1.5 hover:bg-slate-100 rounded text-slate-400 hover:text-red-600">
+                <button onClick={() => handleDeleteClick(project.id)} className="p-1.5 hover:bg-slate-100 rounded text-slate-400 hover:text-red-600">
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
@@ -341,6 +350,15 @@ export default function Projects() {
           </div>
         )}
       </Modal>
+
+      {/* Confirm Delete Dialog */}
+      <ConfirmDialog
+        isOpen={isConfirmOpen}
+        onClose={() => setIsConfirmOpen(false)}
+        onConfirm={handleDelete}
+        title="Delete Project"
+        message="Are you sure you want to delete this project? This action cannot be undone."
+      />
     </div>
   );
 }

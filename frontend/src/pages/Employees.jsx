@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Plus, Search, Eye, Edit, Trash2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import Modal from '../components/Modal';
+import ConfirmDialog from '../components/ConfirmDialog';
 import api from '../services/api';
 
 export default function Employees() {
@@ -10,6 +12,8 @@ export default function Employees() {
   const [typeFilter, setTypeFilter] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
   const [editingEmployee, setEditingEmployee] = useState(null);
   const [viewingEmployee, setViewingEmployee] = useState(null);
   const [formData, setFormData] = useState({
@@ -87,21 +91,26 @@ export default function Employees() {
       }
       fetchEmployees();
       setIsModalOpen(false);
+      toast.success(editingEmployee ? 'Employee updated successfully' : 'Employee added successfully');
     } catch (error) {
       console.error('Error saving employee:', error);
-      alert('Error saving employee. Please try again.');
+      toast.error(error.response?.data?.message || 'Error saving employee. Please try again.');
     }
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this employee?')) {
-      try {
-        await api.delete(`/employees/${id}`);
-        fetchEmployees();
-      } catch (error) {
-        console.error('Error deleting employee:', error);
-        alert('Error deleting employee. Please try again.');
-      }
+  const handleDeleteClick = (id) => {
+    setDeletingId(id);
+    setIsConfirmOpen(true);
+  };
+
+  const handleDelete = async () => {
+    try {
+      await api.delete(`/employees/${deletingId}`);
+      toast.success('Employee deleted successfully');
+      fetchEmployees();
+    } catch (error) {
+      console.error('Error deleting employee:', error);
+      toast.error(error.response?.data?.message || 'Error deleting employee. Please try again.');
     }
   };
 
@@ -206,7 +215,7 @@ export default function Employees() {
                       <div className="flex items-center justify-end gap-2">
                         <button onClick={() => openViewModal(employee)} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600"><Eye className="w-4 h-4" /></button>
                         <button onClick={() => openEditModal(employee)} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600"><Edit className="w-4 h-4" /></button>
-                        <button onClick={() => handleDelete(employee.id)} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+                        <button onClick={() => handleDeleteClick(employee.id)} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
                       </div>
                     </td>
                   </tr>
@@ -293,6 +302,15 @@ export default function Employees() {
           </div>
         )}
       </Modal>
+
+      {/* Confirm Delete Dialog */}
+      <ConfirmDialog
+        isOpen={isConfirmOpen}
+        onClose={() => setIsConfirmOpen(false)}
+        onConfirm={handleDelete}
+        title="Delete Employee"
+        message="Are you sure you want to delete this employee? This action cannot be undone."
+      />
     </div>
   );
 }

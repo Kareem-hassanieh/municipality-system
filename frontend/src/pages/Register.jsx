@@ -20,8 +20,13 @@ export default function Register() {
     setLoading(true);
 
     try {
-      await register(name, email, password, passwordConfirmation);
-      navigate('/dashboard');
+      const user = await register(name, email, password, passwordConfirmation);
+      // Registration always creates citizen account, but redirect based on role for safety
+      if (user?.role === 'citizen') {
+        navigate('/citizen');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Registration failed. Please try again.');
     } finally {
