@@ -27,8 +27,9 @@ import MyPermits from './pages/citizen/MyPermits';
 import MyPayments from './pages/citizen/MyPayments';
 import MyProfile from './pages/citizen/MyProfile';
 
-function ProtectedRoute({ children, layout = 'admin' }) {
-  const { isAuthenticated, loading, user } = useAuth();
+// Admin Protected Route
+function AdminRoute({ children }) {
+  const { isAuthenticated, isAdmin, loading } = useAuth();
 
   if (loading) {
     return (
@@ -42,16 +43,52 @@ function ProtectedRoute({ children, layout = 'admin' }) {
     return <Navigate to="/login" />;
   }
 
-  if (layout === 'citizen') {
-    return <CitizenLayout>{children}</CitizenLayout>;
+  if (!isAdmin) {
+    return <Navigate to="/citizen" />;
   }
 
   return <DashboardLayout>{children}</DashboardLayout>;
 }
 
-function AppRoutes() {
-  const { user } = useAuth();
+// Citizen Protected Route
+function CitizenRoute({ children }) {
+  const { isAuthenticated, loading } = useAuth();
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
+        <div className="text-slate-600">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" />;
+  }
+
+  return <CitizenLayout>{children}</CitizenLayout>;
+}
+
+// Smart Redirect based on role
+function SmartRedirect() {
+  const { isAuthenticated, isAdmin, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
+        <div className="text-slate-600">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" />;
+  }
+
+  return isAdmin ? <Navigate to="/dashboard" /> : <Navigate to="/citizen" />;
+}
+
+function AppRoutes() {
   return (
     <Routes>
       {/* Public Routes */}
@@ -59,25 +96,25 @@ function AppRoutes() {
       <Route path="/register" element={<Register />} />
 
       {/* Admin Routes */}
-      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-      <Route path="/departments" element={<ProtectedRoute><Departments /></ProtectedRoute>} />
-      <Route path="/citizens" element={<ProtectedRoute><Citizens /></ProtectedRoute>} />
-      <Route path="/requests" element={<ProtectedRoute><Requests /></ProtectedRoute>} />
-      <Route path="/permits" element={<ProtectedRoute><Permits /></ProtectedRoute>} />
-      <Route path="/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
-      <Route path="/projects" element={<ProtectedRoute><Projects /></ProtectedRoute>} />
-      <Route path="/employees" element={<ProtectedRoute><Employees /></ProtectedRoute>} />
-      <Route path="/events" element={<ProtectedRoute><Events /></ProtectedRoute>} />
+      <Route path="/dashboard" element={<AdminRoute><Dashboard /></AdminRoute>} />
+      <Route path="/departments" element={<AdminRoute><Departments /></AdminRoute>} />
+      <Route path="/citizens" element={<AdminRoute><Citizens /></AdminRoute>} />
+      <Route path="/requests" element={<AdminRoute><Requests /></AdminRoute>} />
+      <Route path="/permits" element={<AdminRoute><Permits /></AdminRoute>} />
+      <Route path="/payments" element={<AdminRoute><Payments /></AdminRoute>} />
+      <Route path="/projects" element={<AdminRoute><Projects /></AdminRoute>} />
+      <Route path="/employees" element={<AdminRoute><Employees /></AdminRoute>} />
+      <Route path="/events" element={<AdminRoute><Events /></AdminRoute>} />
 
       {/* Citizen Routes */}
-      <Route path="/citizen" element={<ProtectedRoute layout="citizen"><CitizenDashboard /></ProtectedRoute>} />
-      <Route path="/citizen/requests" element={<ProtectedRoute layout="citizen"><MyRequests /></ProtectedRoute>} />
-      <Route path="/citizen/permits" element={<ProtectedRoute layout="citizen"><MyPermits /></ProtectedRoute>} />
-      <Route path="/citizen/payments" element={<ProtectedRoute layout="citizen"><MyPayments /></ProtectedRoute>} />
-      <Route path="/citizen/profile" element={<ProtectedRoute layout="citizen"><MyProfile /></ProtectedRoute>} />
+      <Route path="/citizen" element={<CitizenRoute><CitizenDashboard /></CitizenRoute>} />
+      <Route path="/citizen/requests" element={<CitizenRoute><MyRequests /></CitizenRoute>} />
+      <Route path="/citizen/permits" element={<CitizenRoute><MyPermits /></CitizenRoute>} />
+      <Route path="/citizen/payments" element={<CitizenRoute><MyPayments /></CitizenRoute>} />
+      <Route path="/citizen/profile" element={<CitizenRoute><MyProfile /></CitizenRoute>} />
 
-      {/* Default Redirect */}
-      <Route path="/" element={<Navigate to="/dashboard" />} />
+      {/* Default - Smart Redirect */}
+      <Route path="/" element={<SmartRedirect />} />
     </Routes>
   );
 }

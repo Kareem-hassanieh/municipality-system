@@ -3,91 +3,62 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Request as CitizenRequest;
+use App\Models\Request as ServiceRequest;
 use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
 
 class RequestController extends Controller
 {
-    public function index(): JsonResponse
+    public function index()
     {
-        $requests = CitizenRequest::with(['citizen', 'department', 'assignedTo'])
-            ->orderBy('created_at', 'desc')
-            ->paginate(15);
-            
-        return response()->json([
-            'success' => true,
-            'data' => $requests
-        ]);
+        $requests = ServiceRequest::all();
+        return response()->json($requests);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(Request $request)
     {
         $validated = $request->validate([
-            'citizen_id' => 'required|exists:citizens,id',
-            'department_id' => 'nullable|exists:departments,id',
-            'assigned_to' => 'nullable|exists:users,id',
-            'type' => 'required|in:certificate,complaint,service,inquiry',
+            'type' => 'required|string|max:50',
             'subject' => 'required|string|max:255',
-            'description' => 'required|string',
-            'status' => 'in:pending,in_progress,approved,rejected,completed',
-            'priority' => 'in:low,medium,high,urgent',
-            'admin_notes' => 'nullable|string',
-            'submission_date' => 'required|date',
-            'completion_date' => 'nullable|date',
+            'description' => 'nullable|string',
+            'status' => 'nullable|string|in:pending,in_progress,completed,approved,rejected',
+            'priority' => 'nullable|string|in:low,medium,high,urgent',
         ]);
 
         $validated['status'] = $validated['status'] ?? 'pending';
         $validated['priority'] = $validated['priority'] ?? 'medium';
+        $validated['submission_date'] = now();
 
-        $citizenRequest = CitizenRequest::create($validated);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Request submitted successfully',
-            'data' => $citizenRequest
-        ], 201);
+        $serviceRequest = ServiceRequest::create($validated);
+        return response()->json($serviceRequest, 201);
     }
 
-    public function show(CitizenRequest $request): JsonResponse
+    public function show(ServiceRequest $request)
     {
-        $request->load(['citizen', 'department', 'assignedTo', 'documents']);
-        return response()->json([
-            'success' => true,
-            'data' => $request
-        ]);
+        return response()->json($request);
     }
 
-    public function update(Request $httpRequest, CitizenRequest $request): JsonResponse
+    public function update(Request $httpRequest, ServiceRequest $request)
     {
         $validated = $httpRequest->validate([
-            'department_id' => 'nullable|exists:departments,id',
-            'assigned_to' => 'nullable|exists:users,id',
-            'type' => 'sometimes|required|in:certificate,complaint,service,inquiry',
-            'subject' => 'sometimes|required|string|max:255',
-            'description' => 'sometimes|required|string',
-            'status' => 'in:pending,in_progress,approved,rejected,completed',
-            'priority' => 'in:low,medium,high,urgent',
+            'type' => 'sometimes|string|max:50',
+            'subject' => 'sometimes|string|max:255',
+            'description' => 'nullable|string',
+            'status' => 'nullable|string|in:pending,in_progress,completed,approved,rejected',
+            'priority' => 'nullable|string|in:low,medium,high,urgent',
             'admin_notes' => 'nullable|string',
-            'completion_date' => 'nullable|date',
         ]);
+
+        if ($httpRequest->status === 'completed') {
+            $validated['completion_date'] = now();
+        }
 
         $request->update($validated);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Request updated successfully',
-            'data' => $request
-        ]);
+        return response()->json($request);
     }
 
-    public function destroy(CitizenRequest $request): JsonResponse
+    public function destroy(ServiceRequest $request)
     {
         $request->delete();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Request deleted successfully'
-        ]);
+        return response()->json(null, 204);
     }
 }

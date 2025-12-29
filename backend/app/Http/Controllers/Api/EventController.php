@@ -5,90 +5,64 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Event;
 use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
 
 class EventController extends Controller
 {
-    public function index(): JsonResponse
+    public function index()
     {
-        $events = Event::with(['department', 'createdBy'])
-            ->orderBy('start_datetime', 'desc')
-            ->paginate(15);
-            
-        return response()->json([
-            'success' => true,
-            'data' => $events
-        ]);
+        $events = Event::all();
+        return response()->json($events);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(Request $request)
     {
         $validated = $request->validate([
-            'department_id' => 'nullable|exists:departments,id',
-            'created_by' => 'nullable|exists:users,id',
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'type' => 'required|in:community,training,meeting,announcement,other',
+            'type' => 'nullable|string|max:50',
             'location' => 'nullable|string|max:255',
-            'start_datetime' => 'required|date',
-            'end_datetime' => 'nullable|date|after:start_datetime',
-            'target_audience' => 'in:public,staff,department,all',
-            'is_published' => 'boolean',
-            'image' => 'nullable|string',
+            'start_datetime' => 'nullable|date',
+            'end_datetime' => 'nullable|date',
+            'target_audience' => 'nullable|string|in:public,staff,department',
+            'is_published' => 'nullable',
         ]);
 
         $validated['target_audience'] = $validated['target_audience'] ?? 'public';
-        $validated['is_published'] = $validated['is_published'] ?? false;
+        $validated['is_published'] = filter_var($request->is_published ?? true, FILTER_VALIDATE_BOOLEAN);
 
         $event = Event::create($validated);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Event created successfully',
-            'data' => $event
-        ], 201);
+        return response()->json($event, 201);
     }
 
-    public function show(Event $event): JsonResponse
+    public function show(Event $event)
     {
-        $event->load(['department', 'createdBy']);
-        return response()->json([
-            'success' => true,
-            'data' => $event
-        ]);
+        return response()->json($event);
     }
 
-    public function update(Request $request, Event $event): JsonResponse
+    public function update(Request $request, Event $event)
     {
         $validated = $request->validate([
-            'department_id' => 'nullable|exists:departments,id',
-            'title' => 'sometimes|required|string|max:255',
+            'title' => 'sometimes|string|max:255',
             'description' => 'nullable|string',
-            'type' => 'sometimes|required|in:community,training,meeting,announcement,other',
+            'type' => 'nullable|string|max:50',
             'location' => 'nullable|string|max:255',
-            'start_datetime' => 'sometimes|required|date',
+            'start_datetime' => 'nullable|date',
             'end_datetime' => 'nullable|date',
-            'target_audience' => 'in:public,staff,department,all',
-            'is_published' => 'boolean',
-            'image' => 'nullable|string',
+            'target_audience' => 'nullable|string|in:public,staff,department',
+            'is_published' => 'nullable',
         ]);
+
+        if ($request->has('is_published')) {
+            $validated['is_published'] = filter_var($request->is_published, FILTER_VALIDATE_BOOLEAN);
+        }
 
         $event->update($validated);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Event updated successfully',
-            'data' => $event
-        ]);
+        return response()->json($event);
     }
 
-    public function destroy(Event $event): JsonResponse
+    public function destroy(Event $event)
     {
         $event->delete();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Event deleted successfully'
-        ]);
+        return response()->json(null, 204);
     }
 }

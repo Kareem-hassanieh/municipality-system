@@ -1,17 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Search, Eye, Edit, Trash2 } from 'lucide-react';
 import Modal from '../components/Modal';
-
-const initialRequests = [
-  { id: 1, citizen: 'Ahmad Hassan', type: 'certificate', subject: 'Birth Certificate Request', description: 'Need birth certificate for passport application', status: 'pending', priority: 'medium', date: '2024-04-01' },
-  { id: 2, citizen: 'Fatima Ali', type: 'complaint', subject: 'Street Light Not Working', description: 'Street light on main road has been off for a week', status: 'in_progress', priority: 'high', date: '2024-04-02' },
-  { id: 3, citizen: 'Omar Khalil', type: 'service', subject: 'Garbage Collection Issue', description: 'Garbage not collected for 3 days', status: 'completed', priority: 'medium', date: '2024-03-28' },
-  { id: 4, citizen: 'Sara Mansour', type: 'certificate', subject: 'Marriage Certificate', description: 'Request for marriage certificate copy', status: 'approved', priority: 'low', date: '2024-03-25' },
-  { id: 5, citizen: 'Mohammad Saad', type: 'inquiry', subject: 'Property Tax Information', description: 'Need information about property tax rates', status: 'pending', priority: 'low', date: '2024-04-03' },
-];
+import api from '../services/api';
 
 export default function Requests() {
-  const [requests, setRequests] = useState(initialRequests);
+  const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -20,7 +14,6 @@ export default function Requests() {
   const [editingRequest, setEditingRequest] = useState(null);
   const [viewingRequest, setViewingRequest] = useState(null);
   const [formData, setFormData] = useState({
-    citizen: '',
     type: 'certificate',
     subject: '',
     description: '',
@@ -28,9 +21,25 @@ export default function Requests() {
     priority: 'medium',
   });
 
+  useEffect(() => {
+    fetchRequests();
+  }, []);
+
+  const fetchRequests = async () => {
+    try {
+      const response = await api.get('/requests');
+      const data = response.data || [];
+      setRequests(Array.isArray(data) ? data : []);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching requests:', error);
+      setRequests([]);
+      setLoading(false);
+    }
+  };
+
   const filteredRequests = requests.filter(req => {
-    const matchesSearch = req.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      req.citizen.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (req.subject || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = !typeFilter || req.type === typeFilter;
     const matchesStatus = !statusFilter || req.status === statusFilter;
     return matchesSearch && matchesType && matchesStatus;
@@ -38,19 +47,18 @@ export default function Requests() {
 
   const openAddModal = () => {
     setEditingRequest(null);
-    setFormData({ citizen: '', type: 'certificate', subject: '', description: '', status: 'pending', priority: 'medium' });
+    setFormData({ type: 'certificate', subject: '', description: '', status: 'pending', priority: 'medium' });
     setIsModalOpen(true);
   };
 
   const openEditModal = (request) => {
     setEditingRequest(request);
     setFormData({
-      citizen: request.citizen,
-      type: request.type,
-      subject: request.subject,
-      description: request.description,
-      status: request.status,
-      priority: request.priority,
+      type: request.type || 'certificate',
+      subject: request.subject || '',
+      description: request.description || '',
+      status: request.status || 'pending',
+      priority: request.priority || 'medium',
     });
     setIsModalOpen(true);
   };
@@ -60,24 +68,31 @@ export default function Requests() {
     setIsViewModalOpen(true);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (editingRequest) {
-      setRequests(requests.map(r => r.id === editingRequest.id ? { ...r, ...formData } : r));
-    } else {
-      const newRequest = {
-        id: Date.now(),
-        ...formData,
-        date: new Date().toISOString().split('T')[0],
-      };
-      setRequests([...requests, newRequest]);
+    try {
+      if (editingRequest) {
+        await api.put(`/requests/${editingRequest.id}`, formData);
+      } else {
+        await api.post('/requests', formData);
+      }
+      fetchRequests();
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error('Error saving request:', error);
+      alert('Error saving request. Please try again.');
     }
-    setIsModalOpen(false);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this request?')) {
-      setRequests(requests.filter(r => r.id !== id));
+      try {
+        await api.delete(`/requests/${id}`);
+        fetchRequests();
+      } catch (error) {
+        console.error('Error deleting request:', error);
+        alert('Error deleting request. Please try again.');
+      }
     }
   };
 
@@ -102,6 +117,14 @@ export default function Requests() {
     return styles[priority] || 'bg-slate-100 text-slate-600';
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-slate-500">Loading requests...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5">
       {/* Header */}
@@ -121,13 +144,7 @@ export default function Requests() {
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search requests..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none"
-            />
+            <input type="text" placeholder="Search requests..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" />
           </div>
           <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="px-3 py-2 border border-slate-300 rounded text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none">
             <option value="">All Types</option>
@@ -151,8 +168,7 @@ export default function Requests() {
           <table className="w-full">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200">
-                <th className="text-left px-5 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Request</th>
-                <th className="text-left px-5 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Citizen</th>
+                <th className="text-left px-5 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Subject</th>
                 <th className="text-left px-5 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Type</th>
                 <th className="text-left px-5 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Priority</th>
                 <th className="text-left px-5 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Status</th>
@@ -161,45 +177,43 @@ export default function Requests() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {filteredRequests.map((request) => (
-                <tr key={request.id} className="hover:bg-slate-50">
-                  <td className="px-5 py-4">
-                    <p className="text-sm font-medium text-slate-800">{request.subject}</p>
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className="text-sm text-slate-600">{request.citizen}</span>
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className="text-sm text-slate-600 capitalize">{request.type}</span>
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className={`inline-flex px-2 py-1 text-xs font-medium rounded capitalize ${getPriorityStyle(request.priority)}`}>
-                      {request.priority}
-                    </span>
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className={`inline-flex px-2 py-1 text-xs font-medium rounded capitalize ${getStatusStyle(request.status)}`}>
-                      {request.status.replace('_', ' ')}
-                    </span>
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className="text-sm text-slate-600">{request.date}</span>
-                  </td>
-                  <td className="px-5 py-4">
-                    <div className="flex items-center justify-end gap-2">
-                      <button onClick={() => openViewModal(request)} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600">
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => openEditModal(request)} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600">
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => handleDelete(request.id)} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-red-600">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
+              {filteredRequests.length === 0 ? (
+                <tr>
+                  <td colSpan="6" className="px-5 py-8 text-center text-slate-500">No requests found.</td>
                 </tr>
-              ))}
+              ) : (
+                filteredRequests.map((request) => (
+                  <tr key={request.id} className="hover:bg-slate-50">
+                    <td className="px-5 py-4">
+                      <p className="text-sm font-medium text-slate-800">{request.subject}</p>
+                      <p className="text-xs text-slate-500 truncate max-w-xs">{request.description}</p>
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className="text-sm text-slate-600 capitalize">{request.type}</span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded capitalize ${getPriorityStyle(request.priority)}`}>
+                        {request.priority}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded capitalize ${getStatusStyle(request.status)}`}>
+                        {(request.status || '').replace('_', ' ')}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className="text-sm text-slate-600">{request.submission_date || '-'}</span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <div className="flex items-center justify-end gap-2">
+                        <button onClick={() => openViewModal(request)} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600"><Eye className="w-4 h-4" /></button>
+                        <button onClick={() => openEditModal(request)} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600"><Edit className="w-4 h-4" /></button>
+                        <button onClick={() => handleDelete(request.id)} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -208,10 +222,6 @@ export default function Requests() {
       {/* Add/Edit Modal */}
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingRequest ? 'Edit Request' : 'New Request'}>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Citizen Name</label>
-            <input type="text" value={formData.citizen} onChange={(e) => setFormData({ ...formData, citizen: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" required />
-          </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Type</label>
             <select value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none">
@@ -267,10 +277,6 @@ export default function Requests() {
             </div>
             <div className="grid grid-cols-2 gap-4 text-sm pt-4 border-t border-slate-200">
               <div>
-                <p className="text-slate-500">Citizen</p>
-                <p className="text-slate-900">{viewingRequest.citizen}</p>
-              </div>
-              <div>
                 <p className="text-slate-500">Type</p>
                 <p className="text-slate-900 capitalize">{viewingRequest.type}</p>
               </div>
@@ -280,11 +286,11 @@ export default function Requests() {
               </div>
               <div>
                 <p className="text-slate-500">Status</p>
-                <span className={`inline-flex px-2 py-1 text-xs font-medium rounded capitalize ${getStatusStyle(viewingRequest.status)}`}>{viewingRequest.status.replace('_', ' ')}</span>
+                <span className={`inline-flex px-2 py-1 text-xs font-medium rounded capitalize ${getStatusStyle(viewingRequest.status)}`}>{(viewingRequest.status || '').replace('_', ' ')}</span>
               </div>
               <div>
                 <p className="text-slate-500">Date</p>
-                <p className="text-slate-900">{viewingRequest.date}</p>
+                <p className="text-slate-900">{viewingRequest.submission_date || '-'}</p>
               </div>
             </div>
           </div>

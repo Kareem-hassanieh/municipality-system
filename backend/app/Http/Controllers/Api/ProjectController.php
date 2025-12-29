@@ -5,95 +5,81 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Project;
 use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
 
 class ProjectController extends Controller
 {
-    public function index(): JsonResponse
+    public function index()
     {
-        $projects = Project::with(['department', 'manager'])
-            ->orderBy('created_at', 'desc')
-            ->paginate(15);
-            
-        return response()->json([
-            'success' => true,
-            'data' => $projects
-        ]);
+        $projects = Project::all();
+        return response()->json($projects);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(Request $request)
     {
         $validated = $request->validate([
-            'department_id' => 'nullable|exists:departments,id',
-            'manager_id' => 'nullable|exists:users,id',
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'type' => 'required|in:road,park,building,infrastructure,maintenance,other',
-            'status' => 'in:planned,in_progress,on_hold,completed,cancelled',
-            'budget' => 'numeric|min:0',
-            'spent' => 'numeric|min:0',
+            'type' => 'nullable|string|max:50',
+            'status' => 'nullable|string|in:planned,in_progress,on_hold,completed,cancelled',
+            'budget' => 'nullable|numeric',
+            'spent' => 'nullable|numeric',
             'location' => 'nullable|string|max:255',
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date',
-            'progress_percentage' => 'integer|min:0|max:100',
+            'progress_percentage' => 'nullable|integer|min:0|max:100',
         ]);
 
         $validated['status'] = $validated['status'] ?? 'planned';
-        $validated['budget'] = $validated['budget'] ?? 0;
-        $validated['spent'] = $validated['spent'] ?? 0;
         $validated['progress_percentage'] = $validated['progress_percentage'] ?? 0;
+        $validated['spent'] = $validated['spent'] ?? 0;
+
+        // Auto-set progress based on status
+        if ($validated['status'] === 'completed') {
+            $validated['progress_percentage'] = 100;
+        } elseif ($validated['status'] === 'planned') {
+            $validated['progress_percentage'] = 0;
+        }
 
         $project = Project::create($validated);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Project created successfully',
-            'data' => $project
-        ], 201);
+        return response()->json($project, 201);
     }
 
-    public function show(Project $project): JsonResponse
+    public function show(Project $project)
     {
-        $project->load(['department', 'manager', 'tasks', 'documents']);
-        return response()->json([
-            'success' => true,
-            'data' => $project
-        ]);
+        return response()->json($project);
     }
 
-    public function update(Request $request, Project $project): JsonResponse
+    public function update(Request $request, Project $project)
     {
         $validated = $request->validate([
-            'department_id' => 'nullable|exists:departments,id',
-            'manager_id' => 'nullable|exists:users,id',
-            'name' => 'sometimes|required|string|max:255',
+            'name' => 'sometimes|string|max:255',
             'description' => 'nullable|string',
-            'type' => 'sometimes|required|in:road,park,building,infrastructure,maintenance,other',
-            'status' => 'in:planned,in_progress,on_hold,completed,cancelled',
-            'budget' => 'numeric|min:0',
-            'spent' => 'numeric|min:0',
+            'type' => 'nullable|string|max:50',
+            'status' => 'nullable|string|in:planned,in_progress,on_hold,completed,cancelled',
+            'budget' => 'nullable|numeric',
+            'spent' => 'nullable|numeric',
             'location' => 'nullable|string|max:255',
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date',
-            'progress_percentage' => 'integer|min:0|max:100',
+            'progress_percentage' => 'nullable|integer|min:0|max:100',
         ]);
+
+        // Auto-set progress based on status
+        if (isset($validated['status'])) {
+            if ($validated['status'] === 'completed') {
+                $validated['progress_percentage'] = 100;
+            } elseif ($validated['status'] === 'planned') {
+                $validated['progress_percentage'] = 0;
+            }
+        }
 
         $project->update($validated);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Project updated successfully',
-            'data' => $project
-        ]);
+        return response()->json($project);
     }
 
-    public function destroy(Project $project): JsonResponse
+    public function destroy(Project $project)
     {
         $project->delete();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Project deleted successfully'
-        ]);
+        return response()->json(null, 204);
     }
 }

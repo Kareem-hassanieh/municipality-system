@@ -1,17 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Search, Eye, Edit, Trash2 } from 'lucide-react';
 import Modal from '../components/Modal';
-
-const initialPermits = [
-  { id: 1, title: 'Restaurant Business License', applicant: 'Ahmad Hassan', type: 'business', status: 'approved', fee: 500, issueDate: '2024-03-01', expiryDate: '2025-03-01' },
-  { id: 2, title: 'Building Construction Permit', applicant: 'Fatima Ali', type: 'construction', status: 'under_review', fee: 1200, issueDate: '-', expiryDate: '-' },
-  { id: 3, title: 'Food Truck License', applicant: 'Omar Khalil', type: 'business', status: 'pending', fee: 300, issueDate: '-', expiryDate: '-' },
-  { id: 4, title: 'Public Event Permit', applicant: 'Sara Mansour', type: 'event', status: 'approved', fee: 150, issueDate: '2024-03-15', expiryDate: '2024-04-15' },
-  { id: 5, title: 'Vehicle Registration', applicant: 'Mohammad Saad', type: 'vehicle', status: 'rejected', fee: 100, issueDate: '-', expiryDate: '-' },
-];
+import api from '../services/api';
 
 export default function Permits() {
-  const [permits, setPermits] = useState(initialPermits);
+  const [permits, setPermits] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -20,18 +14,33 @@ export default function Permits() {
   const [editingPermit, setEditingPermit] = useState(null);
   const [viewingPermit, setViewingPermit] = useState(null);
   const [formData, setFormData] = useState({
-    title: '',
-    applicant: '',
     type: 'business',
+    title: '',
+    description: '',
     status: 'pending',
     fee: '',
-    issueDate: '',
-    expiryDate: '',
+    expiry_date: '',
   });
 
+  useEffect(() => {
+    fetchPermits();
+  }, []);
+
+  const fetchPermits = async () => {
+    try {
+      const response = await api.get('/permits');
+      const data = response.data || [];
+      setPermits(Array.isArray(data) ? data : []);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching permits:', error);
+      setPermits([]);
+      setLoading(false);
+    }
+  };
+
   const filteredPermits = permits.filter(permit => {
-    const matchesSearch = permit.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      permit.applicant.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (permit.title || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = !typeFilter || permit.type === typeFilter;
     const matchesStatus = !statusFilter || permit.status === statusFilter;
     return matchesSearch && matchesType && matchesStatus;
@@ -39,20 +48,19 @@ export default function Permits() {
 
   const openAddModal = () => {
     setEditingPermit(null);
-    setFormData({ title: '', applicant: '', type: 'business', status: 'pending', fee: '', issueDate: '', expiryDate: '' });
+    setFormData({ type: 'business', title: '', description: '', status: 'pending', fee: '', expiry_date: '' });
     setIsModalOpen(true);
   };
 
   const openEditModal = (permit) => {
     setEditingPermit(permit);
     setFormData({
-      title: permit.title,
-      applicant: permit.applicant,
-      type: permit.type,
-      status: permit.status,
-      fee: permit.fee,
-      issueDate: permit.issueDate === '-' ? '' : permit.issueDate,
-      expiryDate: permit.expiryDate === '-' ? '' : permit.expiryDate,
+      type: permit.type || 'business',
+      title: permit.title || '',
+      description: permit.description || '',
+      status: permit.status || 'pending',
+      fee: permit.fee || '',
+      expiry_date: permit.expiry_date || '',
     });
     setIsModalOpen(true);
   };
@@ -62,26 +70,37 @@ export default function Permits() {
     setIsViewModalOpen(true);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const permitData = {
-      ...formData,
-      fee: Number(formData.fee),
-      issueDate: formData.issueDate || '-',
-      expiryDate: formData.expiryDate || '-',
-    };
-
-    if (editingPermit) {
-      setPermits(permits.map(p => p.id === editingPermit.id ? { ...p, ...permitData } : p));
-    } else {
-      setPermits([...permits, { id: Date.now(), ...permitData }]);
+    try {
+      const dataToSend = {
+        ...formData,
+        fee: formData.fee ? Number(formData.fee) : null,
+        expiry_date: formData.expiry_date || null,
+      };
+      
+      if (editingPermit) {
+        await api.put(`/permits/${editingPermit.id}`, dataToSend);
+      } else {
+        await api.post('/permits', dataToSend);
+      }
+      fetchPermits();
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error('Error saving permit:', error);
+      alert('Error saving permit. Please try again.');
     }
-    setIsModalOpen(false);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this permit?')) {
-      setPermits(permits.filter(p => p.id !== id));
+      try {
+        await api.delete(`/permits/${id}`);
+        fetchPermits();
+      } catch (error) {
+        console.error('Error deleting permit:', error);
+        alert('Error deleting permit. Please try again.');
+      }
     }
   };
 
@@ -95,6 +114,14 @@ export default function Permits() {
     };
     return styles[status] || 'bg-slate-50 text-slate-700';
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-slate-500">Loading permits...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">
@@ -121,8 +148,8 @@ export default function Permits() {
             <option value="">All Types</option>
             <option value="business">Business</option>
             <option value="construction">Construction</option>
-            <option value="vehicle">Vehicle</option>
             <option value="event">Event</option>
+            <option value="vehicle">Vehicle</option>
           </select>
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-3 py-2 border border-slate-300 rounded text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none">
             <option value="">All Status</option>
@@ -141,7 +168,6 @@ export default function Permits() {
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200">
                 <th className="text-left px-5 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Permit</th>
-                <th className="text-left px-5 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Applicant</th>
                 <th className="text-left px-5 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Type</th>
                 <th className="text-left px-5 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Fee</th>
                 <th className="text-left px-5 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Status</th>
@@ -150,43 +176,41 @@ export default function Permits() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {filteredPermits.map((permit) => (
-                <tr key={permit.id} className="hover:bg-slate-50">
-                  <td className="px-5 py-4">
-                    <p className="text-sm font-medium text-slate-800">{permit.title}</p>
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className="text-sm text-slate-600">{permit.applicant}</span>
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className="text-sm text-slate-600 capitalize">{permit.type}</span>
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className="text-sm text-slate-600">${permit.fee}</span>
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className={`inline-flex px-2 py-1 text-xs font-medium rounded capitalize ${getStatusStyle(permit.status)}`}>
-                      {permit.status.replace('_', ' ')}
-                    </span>
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className="text-sm text-slate-600">{permit.expiryDate}</span>
-                  </td>
-                  <td className="px-5 py-4">
-                    <div className="flex items-center justify-end gap-2">
-                      <button onClick={() => openViewModal(permit)} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600">
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => openEditModal(permit)} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600">
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => handleDelete(permit.id)} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-red-600">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
+              {filteredPermits.length === 0 ? (
+                <tr>
+                  <td colSpan="6" className="px-5 py-8 text-center text-slate-500">No permits found.</td>
                 </tr>
-              ))}
+              ) : (
+                filteredPermits.map((permit) => (
+                  <tr key={permit.id} className="hover:bg-slate-50">
+                    <td className="px-5 py-4">
+                      <p className="text-sm font-medium text-slate-800">{permit.title}</p>
+                      <p className="text-xs text-slate-500 truncate max-w-xs">{permit.description}</p>
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className="text-sm text-slate-600 capitalize">{permit.type}</span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className="text-sm text-slate-600">{permit.fee ? `$${permit.fee}` : '-'}</span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded capitalize ${getStatusStyle(permit.status)}`}>
+                        {(permit.status || '').replace('_', ' ')}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className="text-sm text-slate-600">{permit.expiry_date || '-'}</span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <div className="flex items-center justify-end gap-2">
+                        <button onClick={() => openViewModal(permit)} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600"><Eye className="w-4 h-4" /></button>
+                        <button onClick={() => openEditModal(permit)} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600"><Edit className="w-4 h-4" /></button>
+                        <button onClick={() => handleDelete(permit.id)} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -196,26 +220,30 @@ export default function Permits() {
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingPermit ? 'Edit Permit' : 'New Permit'}>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Permit Title</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Type</label>
+            <select value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none">
+              <option value="business">Business</option>
+              <option value="construction">Construction</option>
+              <option value="event">Event</option>
+              <option value="vehicle">Vehicle</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Title</label>
             <input type="text" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" required />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Applicant</label>
-            <input type="text" value={formData.applicant} onChange={(e) => setFormData({ ...formData, applicant: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" required />
+            <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
+            <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" rows={3} />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Type</label>
-              <select value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none">
-                <option value="business">Business</option>
-                <option value="construction">Construction</option>
-                <option value="vehicle">Vehicle</option>
-                <option value="event">Event</option>
-              </select>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Fee ($)</label>
+              <input type="number" value={formData.fee} onChange={(e) => setFormData({ ...formData, fee: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Fee ($)</label>
-              <input type="number" value={formData.fee} onChange={(e) => setFormData({ ...formData, fee: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" required />
+              <label className="block text-sm font-medium text-slate-700 mb-1">Expiry Date</label>
+              <input type="date" value={formData.expiry_date} onChange={(e) => setFormData({ ...formData, expiry_date: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" />
             </div>
           </div>
           <div>
@@ -226,16 +254,6 @@ export default function Permits() {
               <option value="approved">Approved</option>
               <option value="rejected">Rejected</option>
             </select>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Issue Date</label>
-              <input type="date" value={formData.issueDate} onChange={(e) => setFormData({ ...formData, issueDate: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Expiry Date</label>
-              <input type="date" value={formData.expiryDate} onChange={(e) => setFormData({ ...formData, expiryDate: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" />
-            </div>
           </div>
           <div className="flex gap-3 pt-4">
             <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition">Cancel</button>
@@ -250,31 +268,24 @@ export default function Permits() {
           <div className="space-y-4">
             <div>
               <h3 className="font-semibold text-slate-900">{viewingPermit.title}</h3>
+              <p className="text-sm text-slate-500 mt-1">{viewingPermit.description}</p>
             </div>
             <div className="grid grid-cols-2 gap-4 text-sm pt-4 border-t border-slate-200">
-              <div>
-                <p className="text-slate-500">Applicant</p>
-                <p className="text-slate-900">{viewingPermit.applicant}</p>
-              </div>
               <div>
                 <p className="text-slate-500">Type</p>
                 <p className="text-slate-900 capitalize">{viewingPermit.type}</p>
               </div>
               <div>
                 <p className="text-slate-500">Fee</p>
-                <p className="text-slate-900">${viewingPermit.fee}</p>
+                <p className="text-slate-900">{viewingPermit.fee ? `$${viewingPermit.fee}` : '-'}</p>
               </div>
               <div>
                 <p className="text-slate-500">Status</p>
-                <span className={`inline-flex px-2 py-1 text-xs font-medium rounded capitalize ${getStatusStyle(viewingPermit.status)}`}>{viewingPermit.status.replace('_', ' ')}</span>
-              </div>
-              <div>
-                <p className="text-slate-500">Issue Date</p>
-                <p className="text-slate-900">{viewingPermit.issueDate}</p>
+                <span className={`inline-flex px-2 py-1 text-xs font-medium rounded capitalize ${getStatusStyle(viewingPermit.status)}`}>{(viewingPermit.status || '').replace('_', ' ')}</span>
               </div>
               <div>
                 <p className="text-slate-500">Expiry Date</p>
-                <p className="text-slate-900">{viewingPermit.expiryDate}</p>
+                <p className="text-slate-900">{viewingPermit.expiry_date || '-'}</p>
               </div>
             </div>
           </div>

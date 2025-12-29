@@ -1,14 +1,13 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Mail, Lock, Loader2 } from 'lucide-react';
+import { Mail, Lock, AlertCircle } from 'lucide-react';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -18,8 +17,14 @@ export default function Login() {
     setLoading(true);
 
     try {
-      await login(email, password);
-      navigate('/dashboard');
+      const user = await login(email, password);
+      
+      // Redirect based on role
+      if (user?.role === 'citizen') {
+        navigate('/citizen');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed. Please try again.');
     } finally {
@@ -28,55 +33,56 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 flex">
+    <div className="min-h-screen flex">
       {/* Left Side - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-slate-900 text-white flex-col justify-center px-16">
-        <h1 className="text-4xl font-bold mb-4">Municipality Portal</h1>
-        <p className="text-slate-400 text-lg leading-relaxed">
-          Access municipal services, track requests, manage permits, and stay connected with your local government.
-        </p>
-        <div className="mt-12 space-y-4 text-slate-400">
-          <div className="flex items-center gap-3">
-            <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-            <span>Submit and track service requests</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-            <span>Apply for permits online</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-            <span>Pay bills and taxes securely</span>
-          </div>
+      <div className="hidden lg:flex lg:w-1/2 bg-slate-900 text-white p-12 flex-col justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Municipality</h1>
+          <p className="text-slate-400 mt-1">Management System</p>
         </div>
+        <div>
+          <h2 className="text-4xl font-bold leading-tight">
+            Serving our<br />community better.
+          </h2>
+          <p className="text-slate-400 mt-4">
+            Access municipal services, track requests, and manage permits all in one place.
+          </p>
+        </div>
+        <p className="text-slate-500 text-sm">
+          © 2024 Municipality. All rights reserved.
+        </p>
       </div>
 
       {/* Right Side - Login Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
         <div className="w-full max-w-md">
-          <div className="mb-8">
-            <h2 className="text-2xl font-semibold text-slate-800">Welcome back</h2>
-            <p className="text-slate-500 mt-1">Enter your credentials to access your account</p>
+          <div className="lg:hidden mb-8">
+            <h1 className="text-2xl font-bold text-slate-900">Municipality</h1>
+            <p className="text-slate-500">Management System</p>
           </div>
 
+          <h2 className="text-2xl font-semibold text-slate-900">Welcome back</h2>
+          <p className="text-slate-500 mt-2">Please enter your credentials to continue</p>
+
           {error && (
-            <div className="bg-red-50 border-l-4 border-red-500 text-red-700 px-4 py-3 mb-6">
-              {error}
+            <div className="mt-6 p-4 bg-red-50 border border-red-100 rounded-lg flex items-center gap-3 text-red-700">
+              <AlertCircle className="w-5 h-5 flex-shrink-0" />
+              <p className="text-sm">{error}</p>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="mt-8 space-y-5">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">
                 Email
               </label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <Mail className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none"
+                  className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-slate-500 outline-none transition"
                   placeholder="you@example.com"
                   required
                 />
@@ -88,13 +94,13 @@ export default function Login() {
                 Password
               </label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <Lock className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none"
-                  placeholder="Enter your password"
+                  className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-slate-500 outline-none transition"
+                  placeholder="••••••••"
                   required
                 />
               </div>
@@ -103,25 +109,27 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-slate-800 hover:bg-slate-900 text-white font-medium py-2.5 rounded transition duration-150 flex items-center justify-center disabled:opacity-50"
+              className="w-full py-2.5 bg-slate-900 text-white rounded-lg font-medium hover:bg-slate-800 transition disabled:opacity-50"
             >
-              {loading ? (
-                <>
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Signing in...
-                </>
-              ) : (
-                'Sign In'
-              )}
+              {loading ? 'Signing in...' : 'Sign in'}
             </button>
           </form>
 
-          <p className="text-center mt-6 text-slate-600">
+          <p className="mt-6 text-center text-slate-600">
             Don't have an account?{' '}
-            <Link to="/register" className="text-slate-800 hover:underline font-medium">
+            <Link to="/register" className="text-slate-900 font-medium hover:underline">
               Register
             </Link>
           </p>
+
+          {/* Demo Credentials */}
+          <div className="mt-8 p-4 bg-slate-50 rounded-lg">
+            <p className="text-xs font-medium text-slate-500 mb-2">Demo Credentials:</p>
+            <div className="text-xs text-slate-600 space-y-1">
+              <p><strong>Admin:</strong> admin@municipality.com / password123</p>
+              <p><strong>Citizen:</strong> citizen@municipality.com / password123</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>

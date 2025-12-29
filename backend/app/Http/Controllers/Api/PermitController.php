@@ -5,92 +5,64 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Permit;
 use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
 
 class PermitController extends Controller
 {
-    public function index(): JsonResponse
+    public function index()
     {
-        $permits = Permit::with(['citizen', 'department', 'reviewedBy'])
-            ->orderBy('created_at', 'desc')
-            ->paginate(15);
-            
-        return response()->json([
-            'success' => true,
-            'data' => $permits
-        ]);
+        $permits = Permit::all();
+        return response()->json($permits);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(Request $request)
     {
         $validated = $request->validate([
-            'citizen_id' => 'required|exists:citizens,id',
-            'department_id' => 'nullable|exists:departments,id',
-            'reviewed_by' => 'nullable|exists:users,id',
-            'type' => 'required|in:business,construction,vehicle,event,other',
+            'type' => 'required|string|max:50',
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'status' => 'in:pending,under_review,approved,rejected,expired',
-            'application_date' => 'required|date',
-            'issue_date' => 'nullable|date',
+            'status' => 'nullable|string|in:pending,under_review,approved,rejected,expired',
+            'fee' => 'nullable|numeric',
             'expiry_date' => 'nullable|date',
-            'fee' => 'numeric|min:0',
-            'is_paid' => 'boolean',
-            'rejection_reason' => 'nullable|string',
         ]);
 
         $validated['status'] = $validated['status'] ?? 'pending';
+        $validated['application_date'] = now();
+        $validated['is_paid'] = false;
 
         $permit = Permit::create($validated);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Permit application submitted successfully',
-            'data' => $permit
-        ], 201);
+        return response()->json($permit, 201);
     }
 
-    public function show(Permit $permit): JsonResponse
+    public function show(Permit $permit)
     {
-        $permit->load(['citizen', 'department', 'reviewedBy', 'documents']);
-        return response()->json([
-            'success' => true,
-            'data' => $permit
-        ]);
+        return response()->json($permit);
     }
 
-    public function update(Request $request, Permit $permit): JsonResponse
+    public function update(Request $request, Permit $permit)
     {
         $validated = $request->validate([
-            'department_id' => 'nullable|exists:departments,id',
-            'reviewed_by' => 'nullable|exists:users,id',
-            'type' => 'sometimes|required|in:business,construction,vehicle,event,other',
-            'title' => 'sometimes|required|string|max:255',
+            'type' => 'sometimes|string|max:50',
+            'title' => 'sometimes|string|max:255',
             'description' => 'nullable|string',
-            'status' => 'in:pending,under_review,approved,rejected,expired',
+            'status' => 'nullable|string|in:pending,under_review,approved,rejected,expired',
+            'fee' => 'nullable|numeric',
             'issue_date' => 'nullable|date',
             'expiry_date' => 'nullable|date',
-            'fee' => 'numeric|min:0',
-            'is_paid' => 'boolean',
+            'is_paid' => 'nullable|boolean',
             'rejection_reason' => 'nullable|string',
         ]);
 
-        $permit->update($validated);
+        if ($request->status === 'approved' && !$permit->issue_date) {
+            $validated['issue_date'] = now();
+        }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Permit updated successfully',
-            'data' => $permit
-        ]);
+        $permit->update($validated);
+        return response()->json($permit);
     }
 
-    public function destroy(Permit $permit): JsonResponse
+    public function destroy(Permit $permit)
     {
         $permit->delete();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Permit deleted successfully'
-        ]);
+        return response()->json(null, 204);
     }
 }

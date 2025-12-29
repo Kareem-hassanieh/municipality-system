@@ -1,17 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Search, Eye, Download } from 'lucide-react';
 import Modal from '../components/Modal';
-
-const initialPayments = [
-  { id: 1, reference: 'PAY-2024-001', citizen: 'Ahmad Hassan', type: 'property_tax', amount: 1200, status: 'completed', method: 'card', date: '2024-04-01' },
-  { id: 2, reference: 'PAY-2024-002', citizen: 'Fatima Ali', type: 'water_bill', amount: 85, status: 'completed', method: 'cash', date: '2024-04-02' },
-  { id: 3, reference: 'PAY-2024-003', citizen: 'Omar Khalil', type: 'permit_fee', amount: 300, status: 'pending', method: '-', date: '2024-04-03' },
-  { id: 4, reference: 'PAY-2024-004', citizen: 'Sara Mansour', type: 'waste_fee', amount: 50, status: 'completed', method: 'online', date: '2024-03-28' },
-  { id: 5, reference: 'PAY-2024-005', citizen: 'Mohammad Saad', type: 'property_tax', amount: 2400, status: 'failed', method: 'card', date: '2024-03-25' },
-];
+import api from '../services/api';
 
 export default function Payments() {
-  const [payments, setPayments] = useState(initialPayments);
+  const [payments, setPayments] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -19,26 +13,44 @@ export default function Payments() {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [viewingPayment, setViewingPayment] = useState(null);
   const [formData, setFormData] = useState({
-    citizen: '',
     type: 'property_tax',
+    description: '',
     amount: '',
     status: 'pending',
-    method: 'cash',
+    payment_method: 'cash',
+    due_date: '',
   });
 
+  useEffect(() => {
+    fetchPayments();
+  }, []);
+
+  const fetchPayments = async () => {
+    try {
+      const response = await api.get('/payments');
+      const data = response.data || [];
+      setPayments(Array.isArray(data) ? data : []);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching payments:', error);
+      setPayments([]);
+      setLoading(false);
+    }
+  };
+
   const filteredPayments = payments.filter(payment => {
-    const matchesSearch = payment.reference.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      payment.citizen.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (payment.reference_number || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (payment.description || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = !typeFilter || payment.type === typeFilter;
     const matchesStatus = !statusFilter || payment.status === statusFilter;
     return matchesSearch && matchesType && matchesStatus;
   });
 
-  const totalCollected = payments.filter(p => p.status === 'completed').reduce((sum, p) => sum + p.amount, 0);
-  const totalPending = payments.filter(p => p.status === 'pending').reduce((sum, p) => sum + p.amount, 0);
+  const totalCollected = payments.filter(p => p.status === 'completed').reduce((sum, p) => sum + Number(p.amount || 0), 0);
+  const totalPending = payments.filter(p => p.status === 'pending').reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
   const openAddModal = () => {
-    setFormData({ citizen: '', type: 'property_tax', amount: '', status: 'pending', method: 'cash' });
+    setFormData({ type: 'property_tax', description: '', amount: '', status: 'pending', payment_method: 'cash', due_date: '' });
     setIsModalOpen(true);
   };
 
@@ -47,17 +59,21 @@ export default function Payments() {
     setIsViewModalOpen(true);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const newPayment = {
-      id: Date.now(),
-      reference: `PAY-2024-${String(payments.length + 1).padStart(3, '0')}`,
-      ...formData,
-      amount: Number(formData.amount),
-      date: new Date().toISOString().split('T')[0],
-    };
-    setPayments([...payments, newPayment]);
-    setIsModalOpen(false);
+    try {
+      const dataToSend = {
+        ...formData,
+        amount: Number(formData.amount),
+        due_date: formData.due_date || null,
+      };
+      await api.post('/payments', dataToSend);
+      fetchPayments();
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error('Error saving payment:', error);
+      alert('Error saving payment. Please try again.');
+    }
   };
 
   const getStatusStyle = (status) => {
@@ -71,8 +87,16 @@ export default function Payments() {
   };
 
   const formatType = (type) => {
-    return type.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+    return (type || '').split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-slate-500">Loading payments...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">
@@ -134,7 +158,6 @@ export default function Payments() {
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200">
                 <th className="text-left px-5 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Reference</th>
-                <th className="text-left px-5 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Citizen</th>
                 <th className="text-left px-5 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Type</th>
                 <th className="text-left px-5 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Amount</th>
                 <th className="text-left px-5 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Method</th>
@@ -144,43 +167,46 @@ export default function Payments() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {filteredPayments.map((payment) => (
-                <tr key={payment.id} className="hover:bg-slate-50">
-                  <td className="px-5 py-4">
-                    <span className="text-sm font-medium text-slate-800 font-mono">{payment.reference}</span>
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className="text-sm text-slate-600">{payment.citizen}</span>
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className="text-sm text-slate-600">{formatType(payment.type)}</span>
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className="text-sm font-medium text-slate-800">${payment.amount}</span>
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className="text-sm text-slate-600 capitalize">{payment.method}</span>
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className={`inline-flex px-2 py-1 text-xs font-medium rounded capitalize ${getStatusStyle(payment.status)}`}>
-                      {payment.status}
-                    </span>
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className="text-sm text-slate-600">{payment.date}</span>
-                  </td>
-                  <td className="px-5 py-4">
-                    <div className="flex items-center justify-end gap-2">
-                      <button onClick={() => openViewModal(payment)} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600">
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <button className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600">
-                        <Download className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
+              {filteredPayments.length === 0 ? (
+                <tr>
+                  <td colSpan="7" className="px-5 py-8 text-center text-slate-500">No payments found.</td>
                 </tr>
-              ))}
+              ) : (
+                filteredPayments.map((payment) => (
+                  <tr key={payment.id} className="hover:bg-slate-50">
+                    <td className="px-5 py-4">
+                      <span className="text-sm font-medium text-slate-800 font-mono">{payment.reference_number}</span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className="text-sm text-slate-600">{formatType(payment.type)}</span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className="text-sm font-medium text-slate-800">${Number(payment.amount || 0).toLocaleString()}</span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className="text-sm text-slate-600 capitalize">{payment.payment_method || '-'}</span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded capitalize ${getStatusStyle(payment.status)}`}>
+                        {payment.status}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className="text-sm text-slate-600">{payment.payment_date || payment.due_date || '-'}</span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <div className="flex items-center justify-end gap-2">
+                        <button onClick={() => openViewModal(payment)} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600">
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600">
+                          <Download className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -190,34 +216,34 @@ export default function Payments() {
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Record Payment">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Citizen Name</label>
-            <input type="text" value={formData.citizen} onChange={(e) => setFormData({ ...formData, citizen: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" required />
+            <label className="block text-sm font-medium text-slate-700 mb-1">Type</label>
+            <select value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none">
+              <option value="property_tax">Property Tax</option>
+              <option value="water_bill">Water Bill</option>
+              <option value="permit_fee">Permit Fee</option>
+              <option value="waste_fee">Waste Fee</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
+            <input type="text" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" />
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Type</label>
-              <select value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none">
-                <option value="property_tax">Property Tax</option>
-                <option value="water_bill">Water Bill</option>
-                <option value="permit_fee">Permit Fee</option>
-                <option value="waste_fee">Waste Fee</option>
-              </select>
-            </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Amount ($)</label>
               <input type="number" value={formData.amount} onChange={(e) => setFormData({ ...formData, amount: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" required />
             </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Payment Method</label>
-              <select value={formData.method} onChange={(e) => setFormData({ ...formData, method: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none">
+              <select value={formData.payment_method} onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none">
                 <option value="cash">Cash</option>
                 <option value="card">Card</option>
                 <option value="online">Online</option>
                 <option value="bank_transfer">Bank Transfer</option>
               </select>
             </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
               <select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none">
@@ -225,6 +251,10 @@ export default function Payments() {
                 <option value="completed">Completed</option>
                 <option value="failed">Failed</option>
               </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Due Date</label>
+              <input type="date" value={formData.due_date} onChange={(e) => setFormData({ ...formData, due_date: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" />
             </div>
           </div>
           <div className="flex gap-3 pt-4">
@@ -240,16 +270,12 @@ export default function Payments() {
           <div className="space-y-4">
             <div className="text-center pb-4 border-b border-slate-200">
               <p className="text-sm text-slate-500">Amount</p>
-              <p className="text-3xl font-semibold text-slate-900">${viewingPayment.amount}</p>
+              <p className="text-3xl font-semibold text-slate-900">${Number(viewingPayment.amount || 0).toLocaleString()}</p>
             </div>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <p className="text-slate-500">Reference</p>
-                <p className="text-slate-900 font-mono">{viewingPayment.reference}</p>
-              </div>
-              <div>
-                <p className="text-slate-500">Citizen</p>
-                <p className="text-slate-900">{viewingPayment.citizen}</p>
+                <p className="text-slate-900 font-mono">{viewingPayment.reference_number}</p>
               </div>
               <div>
                 <p className="text-slate-500">Type</p>
@@ -257,15 +283,19 @@ export default function Payments() {
               </div>
               <div>
                 <p className="text-slate-500">Method</p>
-                <p className="text-slate-900 capitalize">{viewingPayment.method}</p>
+                <p className="text-slate-900 capitalize">{viewingPayment.payment_method || '-'}</p>
               </div>
               <div>
                 <p className="text-slate-500">Status</p>
                 <span className={`inline-flex px-2 py-1 text-xs font-medium rounded capitalize ${getStatusStyle(viewingPayment.status)}`}>{viewingPayment.status}</span>
               </div>
               <div>
-                <p className="text-slate-500">Date</p>
-                <p className="text-slate-900">{viewingPayment.date}</p>
+                <p className="text-slate-500">Due Date</p>
+                <p className="text-slate-900">{viewingPayment.due_date || '-'}</p>
+              </div>
+              <div>
+                <p className="text-slate-500">Payment Date</p>
+                <p className="text-slate-900">{viewingPayment.payment_date || '-'}</p>
               </div>
             </div>
           </div>

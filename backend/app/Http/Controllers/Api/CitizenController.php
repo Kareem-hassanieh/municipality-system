@@ -5,90 +5,75 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Citizen;
 use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
 
 class CitizenController extends Controller
 {
-    public function index(): JsonResponse
+    public function index()
     {
-        $citizens = Citizen::with('user')->paginate(15);
-        return response()->json([
-            'success' => true,
-            'data' => $citizens
-        ]);
+        $citizens = Citizen::all();
+        return response()->json($citizens);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(Request $request)
     {
         $validated = $request->validate([
-            'user_id' => 'required|exists:users,id',
-            'national_id' => 'required|string|unique:citizens',
-            'first_name' => 'required|string|max:255',
-            'last_name' => 'required|string|max:255',
-            'date_of_birth' => 'required|date',
-            'gender' => 'required|in:male,female',
+            'national_id' => 'required|string|max:50',
+            'first_name' => 'required|string|max:100',
+            'last_name' => 'required|string|max:100',
             'phone' => 'nullable|string|max:20',
-            'address' => 'required|string|max:500',
-            'city' => 'required|string|max:100',
-            'postal_code' => 'nullable|string|max:20',
-            'marital_status' => 'nullable|in:single,married,divorced,widowed',
-            'occupation' => 'nullable|string|max:255',
-            'profile_photo' => 'nullable|string',
-            'is_verified' => 'boolean',
+            'address' => 'nullable|string|max:255',
+            'city' => 'nullable|string|max:100',
+            'gender' => 'nullable|string|in:male,female',
+            'is_verified' => 'nullable',
         ]);
+
+        // Handle date separately
+        if ($request->date_of_birth && $request->date_of_birth !== '') {
+            $validated['date_of_birth'] = $request->date_of_birth;
+        }
+
+        // Convert is_verified to boolean
+        $validated['is_verified'] = filter_var($request->is_verified, FILTER_VALIDATE_BOOLEAN);
 
         $citizen = Citizen::create($validated);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Citizen registered successfully',
-            'data' => $citizen
-        ], 201);
+        return response()->json($citizen, 201);
     }
 
-    public function show(Citizen $citizen): JsonResponse
+    public function show(Citizen $citizen)
     {
-        $citizen->load(['user', 'requests', 'permits', 'payments']);
-        return response()->json([
-            'success' => true,
-            'data' => $citizen
-        ]);
+        return response()->json($citizen);
     }
 
-    public function update(Request $request, Citizen $citizen): JsonResponse
+    public function update(Request $request, Citizen $citizen)
     {
         $validated = $request->validate([
-            'national_id' => 'sometimes|required|string|unique:citizens,national_id,' . $citizen->id,
-            'first_name' => 'sometimes|required|string|max:255',
-            'last_name' => 'sometimes|required|string|max:255',
-            'date_of_birth' => 'sometimes|required|date',
-            'gender' => 'sometimes|required|in:male,female',
+            'national_id' => 'sometimes|string|max:50',
+            'first_name' => 'sometimes|string|max:100',
+            'last_name' => 'sometimes|string|max:100',
             'phone' => 'nullable|string|max:20',
-            'address' => 'sometimes|required|string|max:500',
-            'city' => 'sometimes|required|string|max:100',
-            'postal_code' => 'nullable|string|max:20',
-            'marital_status' => 'nullable|in:single,married,divorced,widowed',
-            'occupation' => 'nullable|string|max:255',
-            'profile_photo' => 'nullable|string',
-            'is_verified' => 'boolean',
+            'address' => 'nullable|string|max:255',
+            'city' => 'nullable|string|max:100',
+            'gender' => 'nullable|string|in:male,female',
+            'is_verified' => 'nullable',
         ]);
+
+        // Handle date separately
+        if ($request->has('date_of_birth')) {
+            $validated['date_of_birth'] = $request->date_of_birth ?: null;
+        }
+
+        // Convert is_verified to boolean
+        if ($request->has('is_verified')) {
+            $validated['is_verified'] = filter_var($request->is_verified, FILTER_VALIDATE_BOOLEAN);
+        }
 
         $citizen->update($validated);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Citizen updated successfully',
-            'data' => $citizen
-        ]);
+        return response()->json($citizen);
     }
 
-    public function destroy(Citizen $citizen): JsonResponse
+    public function destroy(Citizen $citizen)
     {
         $citizen->delete();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Citizen deleted successfully'
-        ]);
+        return response()->json(null, 204);
     }
 }

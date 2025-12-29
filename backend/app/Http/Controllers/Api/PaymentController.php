@@ -5,91 +5,61 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Payment;
 use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Str;
 
 class PaymentController extends Controller
 {
-    public function index(): JsonResponse
+    public function index()
     {
-        $payments = Payment::with('citizen')
-            ->orderBy('created_at', 'desc')
-            ->paginate(15);
-            
-        return response()->json([
-            'success' => true,
-            'data' => $payments
-        ]);
+        $payments = Payment::all();
+        return response()->json($payments);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(Request $request)
     {
         $validated = $request->validate([
-            'citizen_id' => 'required|exists:citizens,id',
-            'type' => 'required|in:property_tax,water_bill,electricity_bill,waste_fee,permit_fee,other',
+            'type' => 'required|string|max:50',
             'description' => 'nullable|string',
-            'amount' => 'required|numeric|min:0',
-            'status' => 'in:pending,completed,failed,refunded',
-            'payment_method' => 'nullable|in:cash,card,bank_transfer,online',
+            'amount' => 'required|numeric',
+            'status' => 'nullable|string|in:pending,completed,failed,refunded',
+            'payment_method' => 'nullable|string|in:cash,card,online,bank_transfer',
             'due_date' => 'nullable|date',
-            'payment_date' => 'nullable|date',
         ]);
 
-        $validated['reference_number'] = 'PAY-' . strtoupper(Str::random(10));
         $validated['status'] = $validated['status'] ?? 'pending';
+        $validated['reference_number'] = 'PAY-' . date('Y') . '-' . str_pad(Payment::count() + 1, 4, '0', STR_PAD_LEFT);
 
         $payment = Payment::create($validated);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Payment created successfully',
-            'data' => $payment
-        ], 201);
+        return response()->json($payment, 201);
     }
 
-    public function show(Payment $payment): JsonResponse
+    public function show(Payment $payment)
     {
-        $payment->load('citizen');
-        return response()->json([
-            'success' => true,
-            'data' => $payment
-        ]);
+        return response()->json($payment);
     }
 
-    public function update(Request $request, Payment $payment): JsonResponse
+    public function update(Request $request, Payment $payment)
     {
         $validated = $request->validate([
-            'type' => 'sometimes|required|in:property_tax,water_bill,electricity_bill,waste_fee,permit_fee,other',
+            'type' => 'sometimes|string|max:50',
             'description' => 'nullable|string',
-            'amount' => 'sometimes|required|numeric|min:0',
-            'status' => 'in:pending,completed,failed,refunded',
-            'payment_method' => 'nullable|in:cash,card,bank_transfer,online',
+            'amount' => 'sometimes|numeric',
+            'status' => 'nullable|string|in:pending,completed,failed,refunded',
+            'payment_method' => 'nullable|string|in:cash,card,online,bank_transfer',
             'due_date' => 'nullable|date',
-            'payment_date' => 'nullable|date',
-            'receipt_number' => 'nullable|string',
         ]);
 
-        if ($validated['status'] ?? null === 'completed' && !$payment->receipt_number) {
-            $validated['receipt_number'] = 'RCP-' . strtoupper(Str::random(10));
-            $validated['payment_date'] = $validated['payment_date'] ?? now();
+        if ($request->status === 'completed' && !$payment->payment_date) {
+            $validated['payment_date'] = now();
+            $validated['receipt_number'] = 'RCP-' . date('Y') . '-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
         }
 
         $payment->update($validated);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Payment updated successfully',
-            'data' => $payment
-        ]);
+        return response()->json($payment);
     }
 
-    public function destroy(Payment $payment): JsonResponse
+    public function destroy(Payment $payment)
     {
         $payment->delete();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Payment deleted successfully'
-        ]);
+        return response()->json(null, 204);
     }
 }

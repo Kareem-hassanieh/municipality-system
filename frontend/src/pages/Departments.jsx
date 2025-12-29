@@ -1,17 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Search, Edit, Trash2 } from 'lucide-react';
 import Modal from '../components/Modal';
-
-const initialDepartments = [
-  { id: 1, name: 'Public Works', code: 'PW', email: 'publicworks@municipality.com', phone: '01-234567', manager: 'Ahmad Khalil', employees: 24, status: 'active' },
-  { id: 2, name: 'Finance', code: 'FIN', email: 'finance@municipality.com', phone: '01-234568', manager: 'Sara Mansour', employees: 12, status: 'active' },
-  { id: 3, name: 'Urban Planning', code: 'UP', email: 'planning@municipality.com', phone: '01-234569', manager: 'Mohammad Ali', employees: 8, status: 'active' },
-  { id: 4, name: 'Human Resources', code: 'HR', email: 'hr@municipality.com', phone: '01-234570', manager: 'Fatima Hassan', employees: 6, status: 'active' },
-  { id: 5, name: 'Citizen Services', code: 'CS', email: 'services@municipality.com', phone: '01-234571', manager: 'Omar Saad', employees: 15, status: 'active' },
-];
+import api from '../services/api';
 
 export default function Departments() {
-  const [departments, setDepartments] = useState(initialDepartments);
+  const [departments, setDepartments] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDepartment, setEditingDepartment] = useState(null);
@@ -20,61 +14,83 @@ export default function Departments() {
     code: '',
     email: '',
     phone: '',
-    manager: '',
+    description: '',
   });
 
+  // Fetch departments from API
+  useEffect(() => {
+    fetchDepartments();
+  }, []);
+
+  const fetchDepartments = async () => {
+    try {
+      const response = await api.get('/departments');
+      setDepartments(response.data.data || response.data);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching departments:', error);
+      setLoading(false);
+    }
+  };
+
   const filteredDepartments = departments.filter(dept =>
-    dept.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    dept.code.toLowerCase().includes(searchTerm.toLowerCase())
+    dept.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    dept.code?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const openAddModal = () => {
     setEditingDepartment(null);
-    setFormData({ name: '', code: '', email: '', phone: '', manager: '' });
+    setFormData({ name: '', code: '', email: '', phone: '', description: '' });
     setIsModalOpen(true);
   };
 
   const openEditModal = (dept) => {
     setEditingDepartment(dept);
     setFormData({
-      name: dept.name,
-      code: dept.code,
-      email: dept.email,
-      phone: dept.phone,
-      manager: dept.manager,
+      name: dept.name || '',
+      code: dept.code || '',
+      email: dept.email || '',
+      phone: dept.phone || '',
+      description: dept.description || '',
     });
     setIsModalOpen(true);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (editingDepartment) {
-      // Update existing
-      setDepartments(departments.map(dept =>
-        dept.id === editingDepartment.id
-          ? { ...dept, ...formData }
-          : dept
-      ));
-    } else {
-      // Add new
-      const newDept = {
-        id: Date.now(),
-        ...formData,
-        employees: 0,
-        status: 'active',
-      };
-      setDepartments([...departments, newDept]);
+    try {
+      if (editingDepartment) {
+        await api.put(`/departments/${editingDepartment.id}`, formData);
+      } else {
+        await api.post('/departments', formData);
+      }
+      fetchDepartments();
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error('Error saving department:', error);
+      alert('Error saving department. Please try again.');
     }
-    
-    setIsModalOpen(false);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this department?')) {
-      setDepartments(departments.filter(dept => dept.id !== id));
+      try {
+        await api.delete(`/departments/${id}`);
+        fetchDepartments();
+      } catch (error) {
+        console.error('Error deleting department:', error);
+        alert('Error deleting department. Please try again.');
+      }
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-slate-500">Loading departments...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">
@@ -115,55 +131,50 @@ export default function Departments() {
               <tr className="bg-slate-50 border-b border-slate-200">
                 <th className="text-left px-5 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Department</th>
                 <th className="text-left px-5 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Code</th>
-                <th className="text-left px-5 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Manager</th>
                 <th className="text-left px-5 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Contact</th>
-                <th className="text-left px-5 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Employees</th>
-                <th className="text-left px-5 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Status</th>
                 <th className="text-right px-5 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {filteredDepartments.map((dept) => (
-                <tr key={dept.id} className="hover:bg-slate-50">
-                  <td className="px-5 py-4">
-                    <p className="text-sm font-medium text-slate-800">{dept.name}</p>
-                    <p className="text-xs text-slate-500">{dept.email}</p>
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className="text-sm text-slate-600">{dept.code}</span>
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className="text-sm text-slate-600">{dept.manager}</span>
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className="text-sm text-slate-600">{dept.phone}</span>
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className="text-sm text-slate-600">{dept.employees}</span>
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className="inline-flex px-2 py-1 text-xs font-medium rounded bg-emerald-50 text-emerald-700">
-                      {dept.status}
-                    </span>
-                  </td>
-                  <td className="px-5 py-4">
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => openEditModal(dept)}
-                        className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(dept.id)}
-                        className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-red-600"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+              {filteredDepartments.length === 0 ? (
+                <tr>
+                  <td colSpan="4" className="px-5 py-8 text-center text-slate-500">
+                    No departments found. Add your first department!
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filteredDepartments.map((dept) => (
+                  <tr key={dept.id} className="hover:bg-slate-50">
+                    <td className="px-5 py-4">
+                      <p className="text-sm font-medium text-slate-800">{dept.name}</p>
+                      <p className="text-xs text-slate-500">{dept.description}</p>
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className="text-sm text-slate-600">{dept.code}</span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <p className="text-sm text-slate-600">{dept.email}</p>
+                      <p className="text-xs text-slate-500">{dept.phone}</p>
+                    </td>
+                    <td className="px-5 py-4">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => openEditModal(dept)}
+                          className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(dept.id)}
+                          className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-red-600"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -211,7 +222,6 @@ export default function Departments() {
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none"
-              required
             />
           </div>
           
@@ -226,16 +236,16 @@ export default function Departments() {
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none"
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
-              Manager
+              Description
             </label>
-            <input
-              type="text"
-              value={formData.manager}
-              onChange={(e) => setFormData({ ...formData, manager: e.target.value })}
+            <textarea
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none"
+              rows={3}
             />
           </div>
 
