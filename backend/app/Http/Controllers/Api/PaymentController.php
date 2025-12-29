@@ -17,6 +17,7 @@ class PaymentController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
+            'citizen_id' => 'nullable|integer',
             'type' => 'required|string|max:50',
             'description' => 'nullable|string',
             'amount' => 'required|numeric',
@@ -26,7 +27,10 @@ class PaymentController extends Controller
         ]);
 
         $validated['status'] = $validated['status'] ?? 'pending';
-        $validated['reference_number'] = 'PAY-' . date('Y') . '-' . str_pad(Payment::count() + 1, 4, '0', STR_PAD_LEFT);
+        
+        // Generate unique reference number using max ID + timestamp
+        $lastId = Payment::max('id') ?? 0;
+        $validated['reference_number'] = 'PAY-' . date('Y') . '-' . str_pad($lastId + 1, 4, '0', STR_PAD_LEFT) . '-' . substr(time(), -4);
 
         $payment = Payment::create($validated);
         return response()->json($payment, 201);
@@ -40,6 +44,7 @@ class PaymentController extends Controller
     public function update(Request $request, Payment $payment)
     {
         $validated = $request->validate([
+            'citizen_id' => 'nullable|integer',
             'type' => 'sometimes|string|max:50',
             'description' => 'nullable|string',
             'amount' => 'sometimes|numeric',

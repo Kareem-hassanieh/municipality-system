@@ -31,29 +31,43 @@ class CitizenPortalController extends Controller
     }
 
     public function updateProfile(Request $request)
-    {
-        $citizen = $this->getCitizen($request);
-        
-        if (!$citizen) {
-            return response()->json(['message' => 'Citizen profile not found'], 404);
-        }
-
-        $validated = $request->validate([
-            'first_name' => 'sometimes|string|max:100',
-            'last_name' => 'sometimes|string|max:100',
-            'phone' => 'nullable|string|max:20',
-            'address' => 'nullable|string|max:255',
-            'city' => 'nullable|string|max:100',
-            'date_of_birth' => 'nullable|date',
-        ]);
-
-        $citizen->update($validated);
-
-        return response()->json([
-            'citizen' => $citizen->fresh(),
-            'user' => $request->user()
-        ]);
+{
+    $citizen = $this->getCitizen($request);
+    
+    if (!$citizen) {
+        return response()->json(['message' => 'Citizen profile not found'], 404);
     }
+
+    $validated = [];
+
+    if ($request->has('first_name') && $request->first_name) {
+        $validated['first_name'] = $request->first_name;
+    }
+    if ($request->has('last_name')) {
+        $validated['last_name'] = $request->last_name;
+    }
+    if ($request->has('phone')) {
+        $validated['phone'] = $request->phone;
+    }
+    if ($request->has('address')) {
+        $validated['address'] = $request->address;
+    }
+    if ($request->has('city')) {
+        $validated['city'] = $request->city;
+    }
+    if ($request->has('date_of_birth') && $request->date_of_birth) {
+        $validated['date_of_birth'] = $request->date_of_birth;
+    }
+
+    if (!empty($validated)) {
+        $citizen->update($validated);
+    }
+
+    return response()->json([
+        'citizen' => $citizen->fresh(),
+        'user' => $request->user()
+    ]);
+}
 
     public function requests(Request $request)
     {

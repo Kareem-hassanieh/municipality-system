@@ -13,6 +13,7 @@ export default function Payments() {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [viewingPayment, setViewingPayment] = useState(null);
   const [formData, setFormData] = useState({
+    citizen_id: '',
     type: 'property_tax',
     description: '',
     amount: '',
@@ -50,7 +51,7 @@ export default function Payments() {
   const totalPending = payments.filter(p => p.status === 'pending').reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
   const openAddModal = () => {
-    setFormData({ type: 'property_tax', description: '', amount: '', status: 'pending', payment_method: 'cash', due_date: '' });
+    setFormData({ citizen_id: '', type: 'property_tax', description: '', amount: '', status: 'pending', payment_method: 'cash', due_date: '' });
     setIsModalOpen(true);
   };
 
@@ -65,6 +66,7 @@ export default function Payments() {
       const dataToSend = {
         ...formData,
         amount: Number(formData.amount),
+        citizen_id: formData.citizen_id ? Number(formData.citizen_id) : null,
         due_date: formData.due_date || null,
       };
       await api.post('/payments', dataToSend);
@@ -158,11 +160,11 @@ export default function Payments() {
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200">
                 <th className="text-left px-5 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Reference</th>
+                <th className="text-left px-5 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Citizen ID</th>
                 <th className="text-left px-5 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Type</th>
                 <th className="text-left px-5 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Amount</th>
-                <th className="text-left px-5 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Method</th>
                 <th className="text-left px-5 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Status</th>
-                <th className="text-left px-5 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Date</th>
+                <th className="text-left px-5 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Due Date</th>
                 <th className="text-right px-5 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
@@ -178,13 +180,13 @@ export default function Payments() {
                       <span className="text-sm font-medium text-slate-800 font-mono">{payment.reference_number}</span>
                     </td>
                     <td className="px-5 py-4">
+                      <span className="text-sm text-slate-600">{payment.citizen_id || '-'}</span>
+                    </td>
+                    <td className="px-5 py-4">
                       <span className="text-sm text-slate-600">{formatType(payment.type)}</span>
                     </td>
                     <td className="px-5 py-4">
                       <span className="text-sm font-medium text-slate-800">${Number(payment.amount || 0).toLocaleString()}</span>
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className="text-sm text-slate-600 capitalize">{payment.payment_method || '-'}</span>
                     </td>
                     <td className="px-5 py-4">
                       <span className={`inline-flex px-2 py-1 text-xs font-medium rounded capitalize ${getStatusStyle(payment.status)}`}>
@@ -192,7 +194,7 @@ export default function Payments() {
                       </span>
                     </td>
                     <td className="px-5 py-4">
-                      <span className="text-sm text-slate-600">{payment.payment_date || payment.due_date || '-'}</span>
+                      <span className="text-sm text-slate-600">{payment.due_date || '-'}</span>
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex items-center justify-end gap-2">
@@ -216,6 +218,16 @@ export default function Payments() {
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Record Payment">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Citizen ID (optional)</label>
+            <input 
+              type="number" 
+              value={formData.citizen_id} 
+              onChange={(e) => setFormData({ ...formData, citizen_id: e.target.value })} 
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" 
+              placeholder="Enter citizen ID (e.g., 5 or 6)"
+            />
+          </div>
+          <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Type</label>
             <select value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none">
               <option value="property_tax">Property Tax</option>
@@ -226,7 +238,7 @@ export default function Payments() {
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
-            <input type="text" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" />
+            <input type="text" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" placeholder="e.g., Water bill for January 2025" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -234,13 +246,8 @@ export default function Payments() {
               <input type="number" value={formData.amount} onChange={(e) => setFormData({ ...formData, amount: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" required />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Payment Method</label>
-              <select value={formData.payment_method} onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none">
-                <option value="cash">Cash</option>
-                <option value="card">Card</option>
-                <option value="online">Online</option>
-                <option value="bank_transfer">Bank Transfer</option>
-              </select>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Due Date</label>
+              <input type="date" value={formData.due_date} onChange={(e) => setFormData({ ...formData, due_date: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -253,8 +260,13 @@ export default function Payments() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Due Date</label>
-              <input type="date" value={formData.due_date} onChange={(e) => setFormData({ ...formData, due_date: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" />
+              <label className="block text-sm font-medium text-slate-700 mb-1">Payment Method</label>
+              <select value={formData.payment_method} onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none">
+                <option value="cash">Cash</option>
+                <option value="card">Card</option>
+                <option value="online">Online</option>
+                <option value="bank_transfer">Bank Transfer</option>
+              </select>
             </div>
           </div>
           <div className="flex gap-3 pt-4">
@@ -278,6 +290,10 @@ export default function Payments() {
                 <p className="text-slate-900 font-mono">{viewingPayment.reference_number}</p>
               </div>
               <div>
+                <p className="text-slate-500">Citizen ID</p>
+                <p className="text-slate-900">{viewingPayment.citizen_id || '-'}</p>
+              </div>
+              <div>
                 <p className="text-slate-500">Type</p>
                 <p className="text-slate-900">{formatType(viewingPayment.type)}</p>
               </div>
@@ -292,10 +308,6 @@ export default function Payments() {
               <div>
                 <p className="text-slate-500">Due Date</p>
                 <p className="text-slate-900">{viewingPayment.due_date || '-'}</p>
-              </div>
-              <div>
-                <p className="text-slate-500">Payment Date</p>
-                <p className="text-slate-900">{viewingPayment.payment_date || '-'}</p>
               </div>
             </div>
           </div>
