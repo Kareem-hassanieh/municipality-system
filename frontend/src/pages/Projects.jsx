@@ -1,21 +1,95 @@
 import { useState } from 'react';
 import { Plus, Search, Eye, Edit, Trash2 } from 'lucide-react';
+import Modal from '../components/Modal';
 
-const projectsData = [
-  { id: 1, name: 'Main Road Renovation', department: 'Public Works', manager: 'Ahmad Khalil', type: 'road', status: 'in_progress', budget: '$120,000', spent: '$90,000', progress: 75 },
-  { id: 2, name: 'Central Park Development', department: 'Urban Planning', manager: 'Sara Mansour', type: 'park', status: 'in_progress', budget: '$85,000', spent: '$38,000', progress: 45 },
-  { id: 3, name: 'Water Pipeline Extension', department: 'Public Works', manager: 'Omar Khalil', type: 'infrastructure', status: 'planned', budget: '$200,000', spent: '$0', progress: 0 },
-  { id: 4, name: 'Municipal Building Renovation', department: 'Public Works', manager: 'Mohammad Ali', type: 'building', status: 'completed', budget: '$50,000', spent: '$48,500', progress: 100 },
-  { id: 5, name: 'Street Lighting Upgrade', department: 'Public Works', manager: 'Fatima Hassan', type: 'maintenance', status: 'on_hold', budget: '$30,000', spent: '$12,000', progress: 40 },
+const initialProjects = [
+  { id: 1, name: 'Main Road Renovation', department: 'Public Works', manager: 'Ahmad Khalil', type: 'road', status: 'in_progress', budget: 120000, spent: 90000, progress: 75, startDate: '2024-01-15', endDate: '2024-06-30' },
+  { id: 2, name: 'Central Park Development', department: 'Urban Planning', manager: 'Sara Mansour', type: 'park', status: 'in_progress', budget: 85000, spent: 38000, progress: 45, startDate: '2024-02-01', endDate: '2024-08-31' },
+  { id: 3, name: 'Water Pipeline Extension', department: 'Public Works', manager: 'Omar Khalil', type: 'infrastructure', status: 'planned', budget: 200000, spent: 0, progress: 0, startDate: '2024-05-01', endDate: '2024-12-31' },
+  { id: 4, name: 'Municipal Building Renovation', department: 'Public Works', manager: 'Mohammad Ali', type: 'building', status: 'completed', budget: 50000, spent: 48500, progress: 100, startDate: '2023-10-01', endDate: '2024-02-28' },
+  { id: 5, name: 'Street Lighting Upgrade', department: 'Public Works', manager: 'Fatima Hassan', type: 'maintenance', status: 'on_hold', budget: 30000, spent: 12000, progress: 40, startDate: '2024-01-01', endDate: '2024-04-30' },
 ];
 
 export default function Projects() {
+  const [projects, setProjects] = useState(initialProjects);
   const [searchTerm, setSearchTerm] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState(null);
+  const [viewingProject, setViewingProject] = useState(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    department: '',
+    manager: '',
+    type: 'road',
+    status: 'planned',
+    budget: '',
+    spent: 0,
+    progress: 0,
+    startDate: '',
+    endDate: '',
+  });
 
-  const filteredProjects = projectsData.filter(project =>
-    project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    project.manager.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredProjects = projects.filter(project => {
+    const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      project.manager.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesType = !typeFilter || project.type === typeFilter;
+    const matchesStatus = !statusFilter || project.status === statusFilter;
+    return matchesSearch && matchesType && matchesStatus;
+  });
+
+  const openAddModal = () => {
+    setEditingProject(null);
+    setFormData({ name: '', department: '', manager: '', type: 'road', status: 'planned', budget: '', spent: 0, progress: 0, startDate: '', endDate: '' });
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (project) => {
+    setEditingProject(project);
+    setFormData({
+      name: project.name,
+      department: project.department,
+      manager: project.manager,
+      type: project.type,
+      status: project.status,
+      budget: project.budget,
+      spent: project.spent,
+      progress: project.progress,
+      startDate: project.startDate,
+      endDate: project.endDate,
+    });
+    setIsModalOpen(true);
+  };
+
+  const openViewModal = (project) => {
+    setViewingProject(project);
+    setIsViewModalOpen(true);
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const projectData = {
+      ...formData,
+      budget: Number(formData.budget),
+      spent: Number(formData.spent),
+      progress: Number(formData.progress),
+    };
+
+    if (editingProject) {
+      setProjects(projects.map(p => p.id === editingProject.id ? { ...p, ...projectData } : p));
+    } else {
+      setProjects([...projects, { id: Date.now(), ...projectData }]);
+    }
+    setIsModalOpen(false);
+  };
+
+  const handleDelete = (id) => {
+    if (window.confirm('Are you sure you want to delete this project?')) {
+      setProjects(projects.filter(p => p.id !== id));
+    }
+  };
 
   const getStatusStyle = (status) => {
     const styles = {
@@ -36,7 +110,7 @@ export default function Projects() {
           <h1 className="text-2xl font-semibold text-slate-800">Projects</h1>
           <p className="text-slate-500 mt-1">Manage municipal projects</p>
         </div>
-        <button className="inline-flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded text-sm font-medium transition-colors">
+        <button onClick={openAddModal} className="inline-flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded text-sm font-medium transition-colors">
           <Plus className="w-4 h-4" />
           New Project
         </button>
@@ -47,22 +121,17 @@ export default function Projects() {
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search projects..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none"
-            />
+            <input type="text" placeholder="Search projects..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" />
           </div>
-          <select className="px-3 py-2 border border-slate-300 rounded text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none">
+          <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="px-3 py-2 border border-slate-300 rounded text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none">
             <option value="">All Types</option>
             <option value="road">Road</option>
             <option value="park">Park</option>
             <option value="building">Building</option>
             <option value="infrastructure">Infrastructure</option>
+            <option value="maintenance">Maintenance</option>
           </select>
-          <select className="px-3 py-2 border border-slate-300 rounded text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none">
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-3 py-2 border border-slate-300 rounded text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none">
             <option value="">All Status</option>
             <option value="planned">Planned</option>
             <option value="in_progress">In Progress</option>
@@ -93,39 +162,149 @@ export default function Projects() {
                   <span>{project.progress}%</span>
                 </div>
                 <div className="w-full bg-slate-200 rounded-full h-2">
-                  <div
-                    className="bg-slate-700 h-2 rounded-full transition-all"
-                    style={{ width: `${project.progress}%` }}
-                  />
+                  <div className="bg-slate-700 h-2 rounded-full transition-all" style={{ width: `${project.progress}%` }} />
                 </div>
               </div>
               
               <div className="flex justify-between text-sm">
                 <div>
                   <p className="text-slate-500 text-xs">Budget</p>
-                  <p className="font-medium text-slate-800">{project.budget}</p>
+                  <p className="font-medium text-slate-800">${project.budget.toLocaleString()}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-slate-500 text-xs">Spent</p>
-                  <p className="font-medium text-slate-800">{project.spent}</p>
+                  <p className="font-medium text-slate-800">${project.spent.toLocaleString()}</p>
                 </div>
               </div>
             </div>
 
             <div className="flex items-center justify-end gap-2 mt-4 pt-4 border-t border-slate-100">
-              <button className="p-1.5 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600">
+              <button onClick={() => openViewModal(project)} className="p-1.5 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600">
                 <Eye className="w-4 h-4" />
               </button>
-              <button className="p-1.5 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600">
+              <button onClick={() => openEditModal(project)} className="p-1.5 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600">
                 <Edit className="w-4 h-4" />
               </button>
-              <button className="p-1.5 hover:bg-slate-100 rounded text-slate-400 hover:text-red-600">
+              <button onClick={() => handleDelete(project.id)} className="p-1.5 hover:bg-slate-100 rounded text-slate-400 hover:text-red-600">
                 <Trash2 className="w-4 h-4" />
               </button>
             </div>
           </div>
         ))}
       </div>
+
+      {/* Add/Edit Modal */}
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingProject ? 'Edit Project' : 'New Project'}>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Project Name</label>
+            <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" required />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Department</label>
+              <input type="text" value={formData.department} onChange={(e) => setFormData({ ...formData, department: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" required />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Manager</label>
+              <input type="text" value={formData.manager} onChange={(e) => setFormData({ ...formData, manager: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" required />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Type</label>
+              <select value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none">
+                <option value="road">Road</option>
+                <option value="park">Park</option>
+                <option value="building">Building</option>
+                <option value="infrastructure">Infrastructure</option>
+                <option value="maintenance">Maintenance</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
+              <select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none">
+                <option value="planned">Planned</option>
+                <option value="in_progress">In Progress</option>
+                <option value="completed">Completed</option>
+                <option value="on_hold">On Hold</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Budget ($)</label>
+              <input type="number" value={formData.budget} onChange={(e) => setFormData({ ...formData, budget: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" required />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Progress (%)</label>
+              <input type="number" min="0" max="100" value={formData.progress} onChange={(e) => setFormData({ ...formData, progress: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Start Date</label>
+              <input type="date" value={formData.startDate} onChange={(e) => setFormData({ ...formData, startDate: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">End Date</label>
+              <input type="date" value={formData.endDate} onChange={(e) => setFormData({ ...formData, endDate: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" />
+            </div>
+          </div>
+          <div className="flex gap-3 pt-4">
+            <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition">Cancel</button>
+            <button type="submit" className="flex-1 px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-900 transition">{editingProject ? 'Update' : 'Create'}</button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* View Modal */}
+      <Modal isOpen={isViewModalOpen} onClose={() => setIsViewModalOpen(false)} title="Project Details">
+        {viewingProject && (
+          <div className="space-y-4">
+            <div>
+              <h3 className="font-semibold text-slate-900">{viewingProject.name}</h3>
+              <p className="text-sm text-slate-500">{viewingProject.department}</p>
+            </div>
+            <div className="pt-4 border-t border-slate-200">
+              <div className="flex justify-between text-xs text-slate-500 mb-1">
+                <span>Progress</span>
+                <span>{viewingProject.progress}%</span>
+              </div>
+              <div className="w-full bg-slate-200 rounded-full h-2">
+                <div className="bg-slate-700 h-2 rounded-full" style={{ width: `${viewingProject.progress}%` }} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4 text-sm pt-4 border-t border-slate-200">
+              <div>
+                <p className="text-slate-500">Manager</p>
+                <p className="text-slate-900">{viewingProject.manager}</p>
+              </div>
+              <div>
+                <p className="text-slate-500">Type</p>
+                <p className="text-slate-900 capitalize">{viewingProject.type}</p>
+              </div>
+              <div>
+                <p className="text-slate-500">Budget</p>
+                <p className="text-slate-900">${viewingProject.budget.toLocaleString()}</p>
+              </div>
+              <div>
+                <p className="text-slate-500">Spent</p>
+                <p className="text-slate-900">${viewingProject.spent.toLocaleString()}</p>
+              </div>
+              <div>
+                <p className="text-slate-500">Start Date</p>
+                <p className="text-slate-900">{viewingProject.startDate}</p>
+              </div>
+              <div>
+                <p className="text-slate-500">End Date</p>
+                <p className="text-slate-900">{viewingProject.endDate}</p>
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
