@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\EmployeeController;
 use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\EventController;
 use App\Http\Controllers\Api\DocumentController;
+use App\Http\Controllers\Api\CitizenPortalController;
 
 // Auth routes
 Route::post('/register', [AuthController::class, 'register']);
@@ -34,4 +35,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('attendance', AttendanceController::class);
     Route::apiResource('events', EventController::class);
     Route::apiResource('documents', DocumentController::class);
+
+    // Citizen Portal Routes
+    Route::get('/my/profile', [CitizenPortalController::class, 'profile']);
+    Route::put('/my/profile', [CitizenPortalController::class, 'updateProfile']);
+    Route::get('/my/requests', [CitizenPortalController::class, 'requests']);
+    Route::post('/my/requests', [CitizenPortalController::class, 'createRequest']);
+    Route::get('/my/permits', [CitizenPortalController::class, 'permits']);
+    Route::post('/my/permits', [CitizenPortalController::class, 'applyPermit']);
+    Route::get('/my/payments', [CitizenPortalController::class, 'payments']);
+    Route::post('/my/payments/{payment}/pay', [CitizenPortalController::class, 'payBill']);
 });

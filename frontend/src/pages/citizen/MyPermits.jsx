@@ -1,15 +1,11 @@
-import { useState } from 'react';
-import { Plus, Eye, Download, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Eye, Download, FileText } from 'lucide-react';
 import Modal from '../../components/Modal';
-
-const initialPermits = [
-  { id: 1, type: 'business', title: 'Coffee Shop License', description: 'Business license for coffee shop on Main Street', issueDate: '2024-01-15', expiryDate: '2025-01-15', status: 'active' },
-  { id: 2, type: 'construction', title: 'Home Renovation', description: 'Permit for kitchen and bathroom renovation', issueDate: '-', expiryDate: '-', status: 'pending' },
-  { id: 3, type: 'event', title: 'Birthday Party', description: 'Public event permit for outdoor birthday party', issueDate: '2024-03-01', expiryDate: '2024-03-05', status: 'expired' },
-];
+import api from '../../services/api';
 
 export default function MyPermits() {
-  const [permits, setPermits] = useState(initialPermits);
+  const [permits, setPermits] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
@@ -20,72 +16,102 @@ export default function MyPermits() {
     description: '',
   });
 
-  const filteredPermits = filter === 'all'
-    ? permits
-    : permits.filter(p => p.status === filter);
+  useEffect(() => {
+    fetchPermits();
+  }, []);
+
+  const fetchPermits = async () => {
+    try {
+      const response = await api.get('/my/permits');
+      const data = response.data || [];
+      setPermits(Array.isArray(data) ? data : []);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching permits:', error);
+      setPermits([]);
+      setLoading(false);
+    }
+  };
+
+  const filteredPermits = permits.filter(permit => {
+    if (filter === 'all') return true;
+    if (filter === 'active') return permit.status === 'approved';
+    if (filter === 'pending') return permit.status === 'pending' || permit.status === 'under_review';
+    if (filter === 'expired') return permit.status === 'expired' || permit.status === 'rejected';
+    return true;
+  });
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await api.post('/my/permits', formData);
+      fetchPermits();
+      setIsModalOpen(false);
+      setFormData({ type: 'business', title: '', description: '' });
+    } catch (error) {
+      console.error('Error applying for permit:', error);
+      alert('Error submitting application. Please try again.');
+    }
+  };
 
   const openViewModal = (permit) => {
     setViewingPermit(permit);
     setIsViewModalOpen(true);
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const newPermit = {
-      id: Date.now(),
-      ...formData,
-      issueDate: '-',
-      expiryDate: '-',
-      status: 'pending',
-    };
-    setPermits([newPermit, ...permits]);
-    setIsModalOpen(false);
-    setFormData({ type: 'business', title: '', description: '' });
-  };
-
   const getStatusStyle = (status) => {
-    if (status === 'active') return 'bg-emerald-50 text-emerald-700';
-    if (status === 'pending') return 'bg-amber-50 text-amber-700';
-    if (status === 'expired') return 'bg-slate-100 text-slate-600';
-    return 'bg-red-50 text-red-700';
+    const styles = {
+      pending: 'bg-amber-50 text-amber-700',
+      under_review: 'bg-blue-50 text-blue-700',
+      approved: 'bg-emerald-50 text-emerald-700',
+      rejected: 'bg-red-50 text-red-700',
+      expired: 'bg-slate-100 text-slate-600',
+    };
+    return styles[status] || 'bg-slate-50 text-slate-700';
   };
 
-  const getStatusIcon = (status) => {
-    if (status === 'active') return <CheckCircle className="w-4 h-4 text-emerald-500" />;
-    if (status === 'pending') return <Clock className="w-4 h-4 text-amber-500" />;
-    return <XCircle className="w-4 h-4 text-slate-400" />;
+  const getTypeIcon = (type) => {
+    return type === 'business' ? '🏢' : type === 'construction' ? '🏗️' : type === 'event' ? '🎉' : '🚗';
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-slate-500">Loading permits...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">My Permits</h1>
+          <h1 className="text-2xl font-semibold text-slate-800">My Permits</h1>
           <p className="text-slate-500 mt-1">View and apply for permits</p>
         </div>
         <button
           onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800 transition"
+          className="inline-flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
         >
           <Plus className="w-4 h-4" />
           Apply for Permit
         </button>
       </div>
 
-      {/* Filters */}
-      <div className="flex gap-2">
-        {['all', 'active', 'pending', 'expired'].map((status) => (
+      {/* Filter Tabs */}
+      <div className="flex gap-2 border-b border-slate-200">
+        {['all', 'active', 'pending', 'expired'].map((tab) => (
           <button
-            key={status}
-            onClick={() => setFilter(status)}
-            className={`px-3 py-1.5 text-sm font-medium rounded-lg transition capitalize ${
-              filter === status
-                ? 'bg-slate-900 text-white'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+            key={tab}
+            onClick={() => setFilter(tab)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              filter === tab
+                ? 'border-slate-800 text-slate-800'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
             }`}
           >
-            {status === 'all' ? 'All' : status}
+            {tab.charAt(0).toUpperCase() + tab.slice(1)}
           </button>
         ))}
       </div>
@@ -94,51 +120,43 @@ export default function MyPermits() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {filteredPermits.length === 0 ? (
           <div className="col-span-2 bg-white rounded-lg border border-slate-200 p-8 text-center text-slate-500">
-            No permits found
+            No permits found. Apply for your first permit!
           </div>
         ) : (
           filteredPermits.map((permit) => (
-            <div key={permit.id} className="bg-white rounded-lg border border-slate-200 p-5">
-              <div className="flex items-start justify-between mb-4">
+            <div
+              key={permit.id}
+              className="bg-white rounded-lg border border-slate-200 p-5"
+            >
+              <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-3">
-                  {getStatusIcon(permit.status)}
+                  <span className="text-2xl">{getTypeIcon(permit.type)}</span>
                   <div>
-                    <p className="text-sm font-medium text-slate-900">{permit.title}</p>
-                    <p className="text-xs text-slate-400">#{permit.id}</p>
+                    <h3 className="font-medium text-slate-800">{permit.title}</h3>
+                    <p className="text-sm text-slate-500 capitalize">{permit.type} Permit</p>
                   </div>
                 </div>
-                <span className={`text-xs px-2 py-1 rounded-full capitalize ${getStatusStyle(permit.status)}`}>
-                  {permit.status}
+                <span className={`inline-flex px-2 py-1 text-xs font-medium rounded capitalize ${getStatusStyle(permit.status)}`}>
+                  {(permit.status || '').replace('_', ' ')}
                 </span>
               </div>
-
-              <p className="text-sm text-slate-500 mb-4">{permit.description}</p>
-
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Type</span>
-                  <span className="text-slate-900 capitalize">{permit.type}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Issue Date</span>
-                  <span className="text-slate-900">{permit.issueDate}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Expiry Date</span>
-                  <span className="text-slate-900">{permit.expiryDate}</span>
-                </div>
+              
+              <div className="text-sm text-slate-500 space-y-1 mb-4">
+                <p>Applied: {permit.application_date || new Date(permit.created_at).toLocaleDateString()}</p>
+                {permit.expiry_date && <p>Expires: {permit.expiry_date}</p>}
+                {permit.fee && <p>Fee: ${permit.fee}</p>}
               </div>
 
-              <div className="flex gap-2 mt-4 pt-4 border-t border-slate-100">
+              <div className="flex items-center gap-2 pt-3 border-t border-slate-100">
                 <button
                   onClick={() => openViewModal(permit)}
-                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 rounded-lg transition"
+                  className="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 rounded-lg transition"
                 >
                   <Eye className="w-4 h-4" />
                   View
                 </button>
-                {permit.status === 'active' && (
-                  <button className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 rounded-lg transition">
+                {permit.status === 'approved' && (
+                  <button className="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 rounded-lg transition">
                     <Download className="w-4 h-4" />
                     Download
                   </button>
@@ -171,8 +189,8 @@ export default function MyPermits() {
               type="text"
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              placeholder="e.g., Restaurant Business License"
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none"
+              placeholder="e.g., Restaurant Business License"
               required
             />
           </div>
@@ -181,10 +199,9 @@ export default function MyPermits() {
             <textarea
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Please describe what the permit is for..."
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none"
               rows={4}
-              required
+              placeholder="Provide details about your permit application..."
             />
           </div>
           <div className="flex gap-3 pt-4">
@@ -197,7 +214,7 @@ export default function MyPermits() {
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800 transition"
+              className="flex-1 px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-900 transition"
             >
               Submit Application
             </button>
@@ -209,28 +226,35 @@ export default function MyPermits() {
       <Modal isOpen={isViewModalOpen} onClose={() => setIsViewModalOpen(false)} title="Permit Details">
         {viewingPermit && (
           <div className="space-y-4">
-            <div>
-              <h3 className="font-semibold text-slate-900">{viewingPermit.title}</h3>
-              <p className="text-sm text-slate-500 mt-1">{viewingPermit.description}</p>
+            <div className="flex items-center gap-3">
+              <span className="text-3xl">{getTypeIcon(viewingPermit.type)}</span>
+              <div>
+                <h3 className="font-semibold text-slate-900">{viewingPermit.title}</h3>
+                <span className={`inline-flex px-2 py-1 text-xs font-medium rounded capitalize ${getStatusStyle(viewingPermit.status)}`}>
+                  {(viewingPermit.status || '').replace('_', ' ')}
+                </span>
+              </div>
+            </div>
+            <div className="pt-4 border-t border-slate-200">
+              <p className="text-sm text-slate-500 mb-1">Description</p>
+              <p className="text-slate-800">{viewingPermit.description || 'No description provided'}</p>
             </div>
             <div className="grid grid-cols-2 gap-4 text-sm pt-4 border-t border-slate-200">
               <div>
                 <p className="text-slate-500">Type</p>
-                <p className="text-slate-900 capitalize">{viewingPermit.type}</p>
+                <p className="text-slate-900 capitalize">{viewingPermit.type} Permit</p>
               </div>
               <div>
-                <p className="text-slate-500">Status</p>
-                <span className={`inline-flex px-2 py-1 text-xs font-medium rounded capitalize ${getStatusStyle(viewingPermit.status)}`}>
-                  {viewingPermit.status}
-                </span>
+                <p className="text-slate-500">Fee</p>
+                <p className="text-slate-900">{viewingPermit.fee ? `$${viewingPermit.fee}` : 'TBD'}</p>
               </div>
               <div>
-                <p className="text-slate-500">Issue Date</p>
-                <p className="text-slate-900">{viewingPermit.issueDate}</p>
+                <p className="text-slate-500">Applied</p>
+                <p className="text-slate-900">{viewingPermit.application_date || new Date(viewingPermit.created_at).toLocaleDateString()}</p>
               </div>
               <div>
-                <p className="text-slate-500">Expiry Date</p>
-                <p className="text-slate-900">{viewingPermit.expiryDate}</p>
+                <p className="text-slate-500">Expires</p>
+                <p className="text-slate-900">{viewingPermit.expiry_date || '-'}</p>
               </div>
             </div>
           </div>

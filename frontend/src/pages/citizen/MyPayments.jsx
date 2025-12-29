@@ -1,142 +1,180 @@
-import { useState } from 'react';
-import { Download, CheckCircle, Clock, CreditCard } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { CreditCard, Download, CheckCircle } from 'lucide-react';
 import Modal from '../../components/Modal';
-
-const initialPayments = [
-  { id: 1, type: 'property_tax', description: 'Annual Property Tax 2024', amount: 1200, dueDate: '2024-04-30', status: 'pending' },
-  { id: 2, type: 'water_bill', description: 'Water Bill - March 2024', amount: 85, dueDate: '2024-04-15', status: 'pending' },
-  { id: 3, type: 'waste_fee', description: 'Waste Collection Fee - Q1', amount: 50, dueDate: '2024-03-30', status: 'paid', paidDate: '2024-03-28' },
-  { id: 4, type: 'permit_fee', description: 'Business License Fee', amount: 300, dueDate: '2024-03-15', status: 'paid', paidDate: '2024-03-10' },
-];
+import api from '../../services/api';
 
 export default function MyPayments() {
-  const [payments, setPayments] = useState(initialPayments);
+  const [payments, setPayments] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
-  const [selectedPayment, setSelectedPayment] = useState(null);
-  const [cardDetails, setCardDetails] = useState({
-    cardNumber: '',
-    expiry: '',
-    cvv: '',
-    name: '',
-  });
+  const [payingItem, setPayingItem] = useState(null);
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
 
-  const filteredPayments = filter === 'all'
-    ? payments
-    : payments.filter(p => p.status === filter);
+  useEffect(() => {
+    fetchPayments();
+  }, []);
 
-  const pendingTotal = payments
-    .filter(p => p.status === 'pending')
-    .reduce((sum, p) => sum + p.amount, 0);
-
-  const openPayModal = (payment) => {
-    setSelectedPayment(payment);
-    setIsPayModalOpen(true);
-  };
-
-  const handlePayment = (e) => {
-    e.preventDefault();
-    // Simulate payment processing
-    setPayments(payments.map(p =>
-      p.id === selectedPayment.id
-        ? { ...p, status: 'paid', paidDate: new Date().toISOString().split('T')[0] }
-        : p
-    ));
-    setIsPayModalOpen(false);
-    setCardDetails({ cardNumber: '', expiry: '', cvv: '', name: '' });
-    alert('Payment successful! Thank you.');
-  };
-
-  const handlePayAll = () => {
-    if (window.confirm(`Pay all pending bills ($${pendingTotal})?`)) {
-      setPayments(payments.map(p =>
-        p.status === 'pending'
-          ? { ...p, status: 'paid', paidDate: new Date().toISOString().split('T')[0] }
-          : p
-      ));
-      alert('All payments successful! Thank you.');
+  const fetchPayments = async () => {
+    try {
+      const response = await api.get('/my/payments');
+      const data = response.data || [];
+      setPayments(Array.isArray(data) ? data : []);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching payments:', error);
+      setPayments([]);
+      setLoading(false);
     }
   };
 
-  const formatType = (type) => {
-    return type.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+  const filteredPayments = payments.filter(payment => {
+    if (filter === 'all') return true;
+    if (filter === 'pending') return payment.status === 'pending';
+    if (filter === 'paid') return payment.status === 'completed';
+    return true;
+  });
+
+  const totalPending = payments
+    .filter(p => p.status === 'pending')
+    .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+
+  const openPayModal = (payment) => {
+    setPayingItem(payment);
+    setIsPayModalOpen(true);
   };
+
+  const handlePay = async () => {
+    if (!payingItem) return;
+
+    try {
+      await api.post(`/my/payments/${payingItem.id}/pay`, {
+        payment_method: 'card'
+      });
+      setIsPayModalOpen(false);
+      setPaymentSuccess(true);
+      fetchPayments();
+      setTimeout(() => setPaymentSuccess(false), 3000);
+    } catch (error) {
+      console.error('Error processing payment:', error);
+      alert('Error processing payment. Please try again.');
+    }
+  };
+
+  const getStatusStyle = (status) => {
+    const styles = {
+      pending: 'bg-amber-50 text-amber-700',
+      completed: 'bg-emerald-50 text-emerald-700',
+      failed: 'bg-red-50 text-red-700',
+    };
+    return styles[status] || 'bg-slate-50 text-slate-700';
+  };
+
+  const formatType = (type) => {
+    return (type || '').split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-slate-500">Loading payments...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
+      {paymentSuccess && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 flex items-center gap-3">
+          <CheckCircle className="w-5 h-5 text-emerald-600" />
+          <span className="text-emerald-800">Payment completed successfully!</span>
+        </div>
+      )}
+
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-semibold text-slate-900">My Payments</h1>
-        <p className="text-slate-500 mt-1">View and pay your bills</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-slate-800">My Payments</h1>
+          <p className="text-slate-500 mt-1">View and pay your bills</p>
+        </div>
       </div>
 
       {/* Summary Card */}
-      <div className="bg-slate-900 rounded-lg p-6 text-white">
-        <p className="text-slate-400 text-sm">Total Amount Due</p>
-        <p className="text-3xl font-semibold mt-1">${pendingTotal.toLocaleString()}</p>
-        {pendingTotal > 0 && (
+      {totalPending > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-5 flex items-center justify-between">
+          <div>
+            <p className="text-amber-800 font-medium">Total Amount Due</p>
+            <p className="text-2xl font-bold text-amber-900">${totalPending.toLocaleString()}</p>
+          </div>
           <button
-            onClick={handlePayAll}
-            className="mt-4 px-4 py-2 bg-white text-slate-900 text-sm font-medium rounded-lg hover:bg-slate-100 transition"
+            onClick={() => {
+              const pendingPayment = payments.find(p => p.status === 'pending');
+              if (pendingPayment) openPayModal(pendingPayment);
+            }}
+            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-medium transition"
           >
-            Pay All Bills
+            Pay Now
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* Filters */}
-      <div className="flex gap-2">
-        {['all', 'pending', 'paid'].map((status) => (
+      {/* Filter Tabs */}
+      <div className="flex gap-2 border-b border-slate-200">
+        {['all', 'pending', 'paid'].map((tab) => (
           <button
-            key={status}
-            onClick={() => setFilter(status)}
-            className={`px-3 py-1.5 text-sm font-medium rounded-lg transition capitalize ${
-              filter === status
-                ? 'bg-slate-900 text-white'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+            key={tab}
+            onClick={() => setFilter(tab)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              filter === tab
+                ? 'border-slate-800 text-slate-800'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
             }`}
           >
-            {status === 'all' ? 'All' : status}
+            {tab.charAt(0).toUpperCase() + tab.slice(1)}
           </button>
         ))}
       </div>
 
       {/* Payments List */}
-      <div className="bg-white rounded-lg border border-slate-200 divide-y divide-slate-100">
+      <div className="space-y-4">
         {filteredPayments.length === 0 ? (
-          <div className="p-8 text-center text-slate-500">No payments found</div>
+          <div className="bg-white rounded-lg border border-slate-200 p-8 text-center text-slate-500">
+            No payments found.
+          </div>
         ) : (
           filteredPayments.map((payment) => (
-            <div key={payment.id} className="p-5 flex items-center justify-between">
+            <div
+              key={payment.id}
+              className="bg-white rounded-lg border border-slate-200 p-4 flex items-center justify-between"
+            >
               <div className="flex items-center gap-4">
-                {payment.status === 'paid' ? (
-                  <div className="w-10 h-10 bg-emerald-50 rounded-lg flex items-center justify-center">
-                    <CheckCircle className="w-5 h-5 text-emerald-500" />
-                  </div>
-                ) : (
-                  <div className="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center">
-                    <Clock className="w-5 h-5 text-amber-500" />
-                  </div>
-                )}
+                <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center">
+                  <CreditCard className="w-5 h-5 text-slate-500" />
+                </div>
                 <div>
-                  <p className="text-sm font-medium text-slate-900">{payment.description}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    {formatType(payment.type)} • {payment.status === 'paid' ? `Paid ${payment.paidDate}` : `Due ${payment.dueDate}`}
+                  <h3 className="font-medium text-slate-800">{formatType(payment.type)}</h3>
+                  <p className="text-sm text-slate-500">
+                    {payment.reference_number} • {payment.due_date || new Date(payment.created_at).toLocaleDateString()}
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-4">
-                <p className="text-sm font-semibold text-slate-900">${payment.amount}</p>
+                <div className="text-right">
+                  <p className="font-semibold text-slate-800">${Number(payment.amount || 0).toLocaleString()}</p>
+                  <span className={`inline-flex px-2 py-1 text-xs font-medium rounded capitalize ${getStatusStyle(payment.status)}`}>
+                    {payment.status}
+                  </span>
+                </div>
                 {payment.status === 'pending' ? (
                   <button
                     onClick={() => openPayModal(payment)}
-                    className="px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800 transition"
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-sm font-medium transition"
                   >
-                    Pay Now
+                    Pay
                   </button>
                 ) : (
-                  <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg">
-                    <Download className="w-4 h-4" />
+                  <button className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600">
+                    <Download className="w-5 h-5" />
                   </button>
                 )}
               </div>
@@ -145,84 +183,68 @@ export default function MyPayments() {
         )}
       </div>
 
-      {/* Payment Modal */}
-      <Modal isOpen={isPayModalOpen} onClose={() => setIsPayModalOpen(false)} title="Make Payment">
-        {selectedPayment && (
-          <form onSubmit={handlePayment} className="space-y-4">
-            <div className="bg-slate-50 rounded-lg p-4 text-center">
+      {/* Pay Modal */}
+      <Modal isOpen={isPayModalOpen} onClose={() => setIsPayModalOpen(false)} title="Complete Payment">
+        {payingItem && (
+          <div className="space-y-5">
+            <div className="text-center pb-5 border-b border-slate-200">
               <p className="text-sm text-slate-500">Amount to Pay</p>
-              <p className="text-2xl font-semibold text-slate-900">${selectedPayment.amount}</p>
-              <p className="text-xs text-slate-400 mt-1">{selectedPayment.description}</p>
+              <p className="text-3xl font-bold text-slate-800">${Number(payingItem.amount || 0).toLocaleString()}</p>
+              <p className="text-sm text-slate-500 mt-1">{formatType(payingItem.type)}</p>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Card Number</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={cardDetails.cardNumber}
-                  onChange={(e) => setCardDetails({ ...cardDetails, cardNumber: e.target.value })}
-                  placeholder="1234 5678 9012 3456"
-                  className="w-full px-3 py-2 pl-10 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none"
-                  required
-                />
-                <CreditCard className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Expiry Date</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Card Number</label>
                 <input
                   type="text"
-                  value={cardDetails.expiry}
-                  onChange={(e) => setCardDetails({ ...cardDetails, expiry: e.target.value })}
-                  placeholder="MM/YY"
+                  placeholder="4242 4242 4242 4242"
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none"
-                  required
                 />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Expiry</label>
+                  <input
+                    type="text"
+                    placeholder="MM/YY"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">CVV</label>
+                  <input
+                    type="text"
+                    placeholder="123"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none"
+                  />
+                </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">CVV</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Cardholder Name</label>
                 <input
                   type="text"
-                  value={cardDetails.cvv}
-                  onChange={(e) => setCardDetails({ ...cardDetails, cvv: e.target.value })}
-                  placeholder="123"
+                  placeholder="John Doe"
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none"
-                  required
                 />
               </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Cardholder Name</label>
-              <input
-                type="text"
-                value={cardDetails.name}
-                onChange={(e) => setCardDetails({ ...cardDetails, name: e.target.value })}
-                placeholder="John Doe"
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none"
-                required
-              />
             </div>
 
             <div className="flex gap-3 pt-4">
               <button
-                type="button"
                 onClick={() => setIsPayModalOpen(false)}
                 className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition"
               >
                 Cancel
               </button>
               <button
-                type="submit"
-                className="flex-1 px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800 transition"
+                onClick={handlePay}
+                className="flex-1 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition"
               >
-                Pay ${selectedPayment.amount}
+                Pay ${Number(payingItem.amount || 0).toLocaleString()}
               </button>
             </div>
-          </form>
+          </div>
         )}
       </Modal>
     </div>
