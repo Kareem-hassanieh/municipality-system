@@ -16,6 +16,16 @@ export default function MyPermits() {
     title: '',
     description: '',
   });
+  const [errors, setErrors] = useState({});
+
+  const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric' 
+    });
+  };
 
   useEffect(() => {
     fetchPermits();
@@ -31,7 +41,6 @@ export default function MyPermits() {
     } catch (error) {
       console.error('Error fetching permits:', error);
       toast.error('Failed to load permits. Please refresh the page.');
-      // Don't clear existing data on error to prevent appearing like data disappeared
       setLoading(false);
     }
   };
@@ -44,14 +53,43 @@ export default function MyPermits() {
     return true;
   });
 
+  const validateForm = () => {
+    const newErrors = {};
+    
+    if (!formData.title.trim()) {
+      newErrors.title = 'Title is required';
+    } else if (formData.title.trim().length < 5) {
+      newErrors.title = 'Title must be at least 5 characters';
+    }
+
+    if (!formData.description.trim()) {
+      newErrors.description = 'Description is required';
+    } else if (formData.description.trim().length < 10) {
+      newErrors.description = 'Description must be at least 10 characters';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+
     try {
-      await api.post('/my/permits', formData);
+      await api.post('/my/permits', {
+        type: formData.type,
+        title: formData.title.trim(),
+        description: formData.description.trim(),
+      });
       toast.success('Permit application submitted successfully');
       fetchPermits();
       setIsModalOpen(false);
       setFormData({ type: 'business', title: '', description: '' });
+      setErrors({});
     } catch (error) {
       console.error('Error applying for permit:', error);
       toast.error(error.response?.data?.message || 'Error submitting application. Please try again.');
@@ -146,8 +184,8 @@ export default function MyPermits() {
               </div>
               
               <div className="text-sm text-slate-500 space-y-1 mb-4">
-                <p>Applied: {permit.application_date || new Date(permit.created_at).toLocaleDateString()}</p>
-                {permit.expiry_date && <p>Expires: {permit.expiry_date}</p>}
+                <p>Applied: {formatDate(permit.application_date || permit.created_at)}</p>
+                {permit.expiry_date && <p>Expires: {formatDate(permit.expiry_date)}</p>}
                 {permit.fee && <p>Fee: ${permit.fee}</p>}
               </div>
 
@@ -172,7 +210,7 @@ export default function MyPermits() {
       </div>
 
       {/* Apply Modal */}
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Apply for Permit">
+      <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setErrors({}); }} title="Apply for Permit">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Permit Type</label>
@@ -192,26 +230,33 @@ export default function MyPermits() {
             <input
               type="text"
               value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none"
+              onChange={(e) => {
+                setFormData({ ...formData, title: e.target.value });
+                if (errors.title) setErrors({ ...errors, title: '' });
+              }}
+              className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none ${errors.title ? 'border-red-500' : 'border-slate-300'}`}
               placeholder="e.g., Restaurant Business License"
-              required
             />
+            {errors.title && <p className="text-red-500 text-xs mt-1">{errors.title}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
             <textarea
               value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none"
+              onChange={(e) => {
+                setFormData({ ...formData, description: e.target.value });
+                if (errors.description) setErrors({ ...errors, description: '' });
+              }}
+              className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none ${errors.description ? 'border-red-500' : 'border-slate-300'}`}
               rows={4}
               placeholder="Provide details about your permit application..."
             />
+            {errors.description && <p className="text-red-500 text-xs mt-1">{errors.description}</p>}
           </div>
           <div className="flex gap-3 pt-4">
             <button
               type="button"
-              onClick={() => setIsModalOpen(false)}
+              onClick={() => { setIsModalOpen(false); setErrors({}); }}
               className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition"
             >
               Cancel
@@ -254,13 +299,19 @@ export default function MyPermits() {
               </div>
               <div>
                 <p className="text-slate-500">Applied</p>
-                <p className="text-slate-900">{viewingPermit.application_date || new Date(viewingPermit.created_at).toLocaleDateString()}</p>
+                <p className="text-slate-900">{formatDate(viewingPermit.application_date || viewingPermit.created_at)}</p>
               </div>
               <div>
                 <p className="text-slate-500">Expires</p>
-                <p className="text-slate-900">{viewingPermit.expiry_date || '-'}</p>
+                <p className="text-slate-900">{formatDate(viewingPermit.expiry_date)}</p>
               </div>
             </div>
+            {viewingPermit.rejection_reason && (
+              <div className="pt-4 border-t border-slate-200">
+                <p className="text-slate-500 text-sm">Rejection Reason</p>
+                <p className="text-red-600 text-sm mt-1">{viewingPermit.rejection_reason}</p>
+              </div>
+            )}
           </div>
         )}
       </Modal>

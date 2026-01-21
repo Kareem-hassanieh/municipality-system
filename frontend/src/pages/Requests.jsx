@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Eye, Edit, Trash2 } from 'lucide-react';
+import { Search, Eye, Edit, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Modal from '../components/Modal';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -23,7 +23,17 @@ export default function Requests() {
     description: '',
     status: 'pending',
     priority: 'medium',
+    admin_notes: '',
   });
+
+  const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric' 
+    });
+  };
 
   useEffect(() => {
     fetchRequests();
@@ -52,12 +62,6 @@ export default function Requests() {
     return matchesSearch && matchesType && matchesStatus;
   });
 
-  const openAddModal = () => {
-    setEditingRequest(null);
-    setFormData({ type: 'certificate', subject: '', description: '', status: 'pending', priority: 'medium' });
-    setIsModalOpen(true);
-  };
-
   const openEditModal = (request) => {
     setEditingRequest(request);
     setFormData({
@@ -66,6 +70,7 @@ export default function Requests() {
       description: request.description || '',
       status: request.status || 'pending',
       priority: request.priority || 'medium',
+      admin_notes: request.admin_notes || '',
     });
     setIsModalOpen(true);
   };
@@ -78,18 +83,17 @@ export default function Requests() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      if (editingRequest) {
-        await api.put(`/requests/${editingRequest.id}`, formData);
-        toast.success('Request updated successfully');
-      } else {
-        await api.post('/requests', formData);
-        toast.success('Request created successfully');
-      }
+      await api.put(`/requests/${editingRequest.id}`, {
+        status: formData.status,
+        priority: formData.priority,
+        admin_notes: formData.admin_notes,
+      });
+      toast.success('Request updated successfully');
       fetchRequests();
       setIsModalOpen(false);
     } catch (error) {
-      console.error('Error saving request:', error);
-      toast.error(error.response?.data?.message || 'Error saving request. Please try again.');
+      console.error('Error updating request:', error);
+      toast.error(error.response?.data?.message || 'Error updating request. Please try again.');
     }
   };
 
@@ -117,7 +121,6 @@ export default function Requests() {
       pending: 'bg-amber-50 text-amber-700',
       in_progress: 'bg-blue-50 text-blue-700',
       completed: 'bg-emerald-50 text-emerald-700',
-      approved: 'bg-emerald-50 text-emerald-700',
       rejected: 'bg-red-50 text-red-700',
     };
     return styles[status] || 'bg-slate-50 text-slate-700';
@@ -146,13 +149,9 @@ export default function Requests() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-800">Requests</h1>
-          <p className="text-slate-500 mt-1">Manage citizen requests and complaints</p>
+          <h1 className="text-2xl font-semibold text-slate-800">Citizen Requests</h1>
+          <p className="text-slate-500 mt-1">Review and manage citizen requests</p>
         </div>
-        <button onClick={openAddModal} className="inline-flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded text-sm font-medium transition-colors">
-          <Plus className="w-4 h-4" />
-          New Request
-        </button>
       </div>
 
       {/* Filters */}
@@ -174,6 +173,7 @@ export default function Requests() {
             <option value="pending">Pending</option>
             <option value="in_progress">In Progress</option>
             <option value="completed">Completed</option>
+            <option value="rejected">Rejected</option>
           </select>
         </div>
       </div>
@@ -229,7 +229,7 @@ export default function Requests() {
                       </span>
                     </td>
                     <td className="px-5 py-4">
-                      <span className="text-sm text-slate-600">{request.submission_date || '-'}</span>
+                      <span className="text-sm text-slate-600">{formatDate(request.submission_date)}</span>
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex items-center justify-end gap-2">
@@ -246,25 +246,35 @@ export default function Requests() {
         </div>
       </div>
 
-      {/* Add/Edit Modal */}
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingRequest ? 'Edit Request' : 'New Request'}>
+      {/* Edit Modal */}
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Update Request">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Type</label>
-            <select value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none">
-              <option value="certificate">Certificate</option>
-              <option value="complaint">Complaint</option>
-              <option value="service">Service</option>
-              <option value="inquiry">Inquiry</option>
-            </select>
+            <input 
+              type="text" 
+              value={formData.type} 
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-600 capitalize" 
+              disabled 
+            />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Subject</label>
-            <input type="text" value={formData.subject} onChange={(e) => setFormData({ ...formData, subject: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" required />
+            <input 
+              type="text" 
+              value={formData.subject} 
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-600" 
+              disabled 
+            />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
-            <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" rows={3} />
+            <textarea 
+              value={formData.description} 
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-600" 
+              rows={3} 
+              disabled 
+            />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -281,15 +291,24 @@ export default function Requests() {
               <select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none">
                 <option value="pending">Pending</option>
                 <option value="in_progress">In Progress</option>
-                <option value="approved">Approved</option>
                 <option value="completed">Completed</option>
                 <option value="rejected">Rejected</option>
               </select>
             </div>
           </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Admin Notes</label>
+            <textarea 
+              value={formData.admin_notes} 
+              onChange={(e) => setFormData({ ...formData, admin_notes: e.target.value })} 
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" 
+              rows={2} 
+              placeholder="Add notes about this request..."
+            />
+          </div>
           <div className="flex gap-3 pt-4">
             <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition">Cancel</button>
-            <button type="submit" className="flex-1 px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-900 transition">{editingRequest ? 'Update' : 'Create'}</button>
+            <button type="submit" className="flex-1 px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-900 transition">Update</button>
           </div>
         </form>
       </Modal>
@@ -329,9 +348,15 @@ export default function Requests() {
               </div>
               <div>
                 <p className="text-slate-500">Date</p>
-                <p className="text-slate-900">{viewingRequest.submission_date || '-'}</p>
+                <p className="text-slate-900">{formatDate(viewingRequest.submission_date)}</p>
               </div>
             </div>
+            {viewingRequest.admin_notes && (
+              <div className="pt-4 border-t border-slate-200">
+                <p className="text-slate-500 text-sm">Admin Notes</p>
+                <p className="text-slate-900 text-sm mt-1">{viewingRequest.admin_notes}</p>
+              </div>
+            )}
           </div>
         )}
       </Modal>

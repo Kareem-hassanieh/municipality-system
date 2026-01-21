@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Plus, Clock, CheckCircle, AlertCircle, Eye } from 'lucide-react';
+import { Plus, Clock, CheckCircle, AlertCircle, Eye, XCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Modal from '../../components/Modal';
+import ConfirmDialog from '../../components/ConfirmDialog';
 import api from '../../services/api';
 
 export default function MyRequests() {
@@ -10,12 +11,24 @@ export default function MyRequests() {
   const [filter, setFilter] = useState('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [cancellingId, setCancellingId] = useState(null);
   const [viewingRequest, setViewingRequest] = useState(null);
   const [formData, setFormData] = useState({
     type: 'certificate',
     subject: '',
     description: '',
   });
+  const [errors, setErrors] = useState({});
+
+  const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric' 
+    });
+  };
 
   useEffect(() => {
     fetchRequests();
@@ -31,7 +44,6 @@ export default function MyRequests() {
     } catch (error) {
       console.error('Error fetching requests:', error);
       toast.error('Failed to load requests. Please refresh the page.');
-      // Don't clear existing data on error to prevent appearing like data disappeared
       setLoading(false);
     }
   };
@@ -41,14 +53,43 @@ export default function MyRequests() {
     return req.status === filter;
   });
 
+  const validateForm = () => {
+    const newErrors = {};
+    
+    if (!formData.subject.trim()) {
+      newErrors.subject = 'Subject is required';
+    } else if (formData.subject.trim().length < 5) {
+      newErrors.subject = 'Subject must be at least 5 characters';
+    }
+
+    if (!formData.description.trim()) {
+      newErrors.description = 'Description is required';
+    } else if (formData.description.trim().length < 10) {
+      newErrors.description = 'Description must be at least 10 characters';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+
     try {
-      await api.post('/my/requests', formData);
+      await api.post('/my/requests', {
+        type: formData.type,
+        subject: formData.subject.trim(),
+        description: formData.description.trim(),
+      });
       toast.success('Request submitted successfully');
       fetchRequests();
       setIsModalOpen(false);
       setFormData({ type: 'certificate', subject: '', description: '' });
+      setErrors({});
     } catch (error) {
       console.error('Error creating request:', error);
       toast.error(error.response?.data?.message || 'Error submitting request. Please try again.');
@@ -60,13 +101,34 @@ export default function MyRequests() {
     setIsViewModalOpen(true);
   };
 
+  const handleCancelClick = (id) => {
+    setCancellingId(id);
+    setIsConfirmOpen(true);
+  };
+
+  const handleCancelRequest = async () => {
+    try {
+      await api.put(`/my/requests/${cancellingId}/cancel`);
+      toast.success('Request cancelled successfully');
+      setIsConfirmOpen(false);
+      setCancellingId(null);
+      fetchRequests();
+    } catch (error) {
+      console.error('Error cancelling request:', error);
+      toast.error(error.response?.data?.message || 'Error cancelling request. Please try again.');
+      setIsConfirmOpen(false);
+    }
+  };
+
   const getStatusIcon = (status) => {
     switch (status) {
       case 'completed':
-      case 'approved':
         return <CheckCircle className="w-5 h-5 text-emerald-500" />;
       case 'in_progress':
         return <AlertCircle className="w-5 h-5 text-blue-500" />;
+      case 'rejected':
+      case 'cancelled':
+        return <XCircle className="w-5 h-5 text-red-500" />;
       default:
         return <Clock className="w-5 h-5 text-amber-500" />;
     }
@@ -77,8 +139,8 @@ export default function MyRequests() {
       pending: 'bg-amber-50 text-amber-700',
       in_progress: 'bg-blue-50 text-blue-700',
       completed: 'bg-emerald-50 text-emerald-700',
-      approved: 'bg-emerald-50 text-emerald-700',
       rejected: 'bg-red-50 text-red-700',
+      cancelled: 'bg-slate-100 text-slate-600',
     };
     return styles[status] || 'bg-slate-50 text-slate-700';
   };
@@ -142,7 +204,7 @@ export default function MyRequests() {
                 <div>
                   <h3 className="font-medium text-slate-800">{request.subject}</h3>
                   <p className="text-sm text-slate-500">
-                    {request.type} • {request.submission_date || new Date(request.created_at).toLocaleDateString()}
+                    {request.type} • {formatDate(request.submission_date || request.created_at)}
                   </p>
                 </div>
               </div>
@@ -156,6 +218,15 @@ export default function MyRequests() {
                 >
                   <Eye className="w-4 h-4" />
                 </button>
+                {request.status === 'pending' && (
+                  <button
+                    onClick={() => handleCancelClick(request.id)}
+                    className="p-2 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-600"
+                    title="Cancel Request"
+                  >
+                    <XCircle className="w-4 h-4" />
+                  </button>
+                )}
               </div>
             </div>
           ))
@@ -163,7 +234,7 @@ export default function MyRequests() {
       </div>
 
       {/* New Request Modal */}
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Submit New Request">
+      <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setErrors({}); }} title="Submit New Request">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Request Type</label>
@@ -183,26 +254,33 @@ export default function MyRequests() {
             <input
               type="text"
               value={formData.subject}
-              onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none"
+              onChange={(e) => {
+                setFormData({ ...formData, subject: e.target.value });
+                if (errors.subject) setErrors({ ...errors, subject: '' });
+              }}
+              className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none ${errors.subject ? 'border-red-500' : 'border-slate-300'}`}
               placeholder="Brief description of your request"
-              required
             />
+            {errors.subject && <p className="text-red-500 text-xs mt-1">{errors.subject}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
             <textarea
               value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none"
+              onChange={(e) => {
+                setFormData({ ...formData, description: e.target.value });
+                if (errors.description) setErrors({ ...errors, description: '' });
+              }}
+              className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none ${errors.description ? 'border-red-500' : 'border-slate-300'}`}
               rows={4}
               placeholder="Provide details about your request..."
             />
+            {errors.description && <p className="text-red-500 text-xs mt-1">{errors.description}</p>}
           </div>
           <div className="flex gap-3 pt-4">
             <button
               type="button"
-              onClick={() => setIsModalOpen(false)}
+              onClick={() => { setIsModalOpen(false); setErrors({}); }}
               className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition"
             >
               Cancel
@@ -245,16 +323,31 @@ export default function MyRequests() {
               </div>
               <div>
                 <p className="text-slate-500">Submitted</p>
-                <p className="text-slate-900">{viewingRequest.submission_date || new Date(viewingRequest.created_at).toLocaleDateString()}</p>
+                <p className="text-slate-900">{formatDate(viewingRequest.submission_date || viewingRequest.created_at)}</p>
               </div>
               <div>
                 <p className="text-slate-500">Completed</p>
-                <p className="text-slate-900">{viewingRequest.completion_date || '-'}</p>
+                <p className="text-slate-900">{formatDate(viewingRequest.completion_date) || '-'}</p>
               </div>
             </div>
+            {viewingRequest.admin_notes && (
+              <div className="pt-4 border-t border-slate-200">
+                <p className="text-slate-500 text-sm">Admin Notes</p>
+                <p className="text-slate-800 text-sm mt-1">{viewingRequest.admin_notes}</p>
+              </div>
+            )}
           </div>
         )}
       </Modal>
+
+      {/* Cancel Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={isConfirmOpen}
+        onClose={() => setIsConfirmOpen(false)}
+        onConfirm={handleCancelRequest}
+        title="Cancel Request"
+        message="Are you sure you want to cancel this request? This action cannot be undone."
+      />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Eye, Edit, Trash2 } from 'lucide-react';
+import { Search, Eye, Edit, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Modal from '../components/Modal';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -24,7 +24,17 @@ export default function Permits() {
     status: 'pending',
     fee: '',
     expiry_date: '',
+    rejection_reason: '',
   });
+
+  const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric' 
+    });
+  };
 
   useEffect(() => {
     fetchPermits();
@@ -53,12 +63,6 @@ export default function Permits() {
     return matchesSearch && matchesType && matchesStatus;
   });
 
-  const openAddModal = () => {
-    setEditingPermit(null);
-    setFormData({ type: 'business', title: '', description: '', status: 'pending', fee: '', expiry_date: '' });
-    setIsModalOpen(true);
-  };
-
   const openEditModal = (permit) => {
     setEditingPermit(permit);
     setFormData({
@@ -68,6 +72,7 @@ export default function Permits() {
       status: permit.status || 'pending',
       fee: permit.fee || '',
       expiry_date: permit.expiry_date || '',
+      rejection_reason: permit.rejection_reason || '',
     });
     setIsModalOpen(true);
   };
@@ -79,24 +84,38 @@ export default function Permits() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validation: if rejecting, require reason
+    if (formData.status === 'rejected' && !formData.rejection_reason.trim()) {
+      toast.error('Please provide a reason for rejection');
+      return;
+    }
+
+    // Validation: if approving, require fee and expiry date
+    if (formData.status === 'approved') {
+      if (!formData.fee || Number(formData.fee) <= 0) {
+        toast.error('Please set a fee for this permit');
+        return;
+      }
+      if (!formData.expiry_date) {
+        toast.error('Please set an expiry date for this permit');
+        return;
+      }
+    }
+
     try {
-      const dataToSend = {
-        ...formData,
+      await api.put(`/permits/${editingPermit.id}`, {
+        status: formData.status,
         fee: formData.fee ? Number(formData.fee) : null,
         expiry_date: formData.expiry_date || null,
-      };
-      
-      if (editingPermit) {
-        await api.put(`/permits/${editingPermit.id}`, dataToSend);
-      } else {
-        await api.post('/permits', dataToSend);
-      }
+        rejection_reason: formData.status === 'rejected' ? formData.rejection_reason : null,
+      });
+      toast.success('Permit updated successfully');
       fetchPermits();
       setIsModalOpen(false);
-      toast.success(editingPermit ? 'Permit updated successfully' : 'Permit created successfully');
     } catch (error) {
-      console.error('Error saving permit:', error);
-      toast.error(error.response?.data?.message || 'Error saving permit. Please try again.');
+      console.error('Error updating permit:', error);
+      toast.error(error.response?.data?.message || 'Error updating permit. Please try again.');
     }
   };
 
@@ -143,13 +162,9 @@ export default function Permits() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-800">Permits</h1>
-          <p className="text-slate-500 mt-1">Manage permits and licenses</p>
+          <h1 className="text-2xl font-semibold text-slate-800">Permit Applications</h1>
+          <p className="text-slate-500 mt-1">Review and approve permit applications</p>
         </div>
-        <button onClick={openAddModal} className="inline-flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded text-sm font-medium transition-colors">
-          <Plus className="w-4 h-4" />
-          New Permit
-        </button>
       </div>
 
       {/* Filters */}
@@ -194,7 +209,7 @@ export default function Permits() {
             <tbody className="divide-y divide-slate-200">
               {filteredPermits.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="px-5 py-8 text-center text-slate-500">No permits found.</td>
+                  <td colSpan="7" className="px-5 py-8 text-center text-slate-500">No permit applications found.</td>
                 </tr>
               ) : (
                 filteredPermits.map((permit) => (
@@ -225,7 +240,7 @@ export default function Permits() {
                       </span>
                     </td>
                     <td className="px-5 py-4">
-                      <span className="text-sm text-slate-600">{permit.expiry_date || '-'}</span>
+                      <span className="text-sm text-slate-600">{formatDate(permit.expiry_date)}</span>
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex items-center justify-end gap-2">
@@ -242,35 +257,35 @@ export default function Permits() {
         </div>
       </div>
 
-      {/* Add/Edit Modal */}
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingPermit ? 'Edit Permit' : 'New Permit'}>
+      {/* Edit Modal */}
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Review Permit Application">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Type</label>
-            <select value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none">
-              <option value="business">Business</option>
-              <option value="construction">Construction</option>
-              <option value="event">Event</option>
-              <option value="vehicle">Vehicle</option>
-            </select>
+            <input 
+              type="text" 
+              value={formData.type} 
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-600 capitalize" 
+              disabled 
+            />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Title</label>
-            <input type="text" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" required />
+            <input 
+              type="text" 
+              value={formData.title} 
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-600" 
+              disabled 
+            />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
-            <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" rows={3} />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Fee ($)</label>
-              <input type="number" value={formData.fee} onChange={(e) => setFormData({ ...formData, fee: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Expiry Date</label>
-              <input type="date" value={formData.expiry_date} onChange={(e) => setFormData({ ...formData, expiry_date: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" />
-            </div>
+            <textarea 
+              value={formData.description} 
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-600" 
+              rows={3} 
+              disabled 
+            />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
@@ -281,9 +296,50 @@ export default function Permits() {
               <option value="rejected">Rejected</option>
             </select>
           </div>
+          
+          {/* Show fee and expiry date fields when approving */}
+          {(formData.status === 'approved' || formData.status === 'under_review') && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Fee ($) {formData.status === 'approved' && <span className="text-red-500">*</span>}</label>
+                <input 
+                  type="number" 
+                  min="0"
+                  value={formData.fee} 
+                  onChange={(e) => setFormData({ ...formData, fee: e.target.value })} 
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" 
+                  placeholder="Enter fee amount"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Expiry Date {formData.status === 'approved' && <span className="text-red-500">*</span>}</label>
+                <input 
+                  type="date" 
+                  value={formData.expiry_date} 
+                  onChange={(e) => setFormData({ ...formData, expiry_date: e.target.value })} 
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" 
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Show rejection reason when rejecting */}
+          {formData.status === 'rejected' && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Rejection Reason <span className="text-red-500">*</span></label>
+              <textarea 
+                value={formData.rejection_reason} 
+                onChange={(e) => setFormData({ ...formData, rejection_reason: e.target.value })} 
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" 
+                rows={2} 
+                placeholder="Explain why this permit is being rejected..."
+              />
+            </div>
+          )}
+
           <div className="flex gap-3 pt-4">
             <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition">Cancel</button>
-            <button type="submit" className="flex-1 px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-900 transition">{editingPermit ? 'Update' : 'Create'}</button>
+            <button type="submit" className="flex-1 px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-900 transition">Update</button>
           </div>
         </form>
       </Modal>
@@ -323,9 +379,19 @@ export default function Permits() {
               </div>
               <div>
                 <p className="text-slate-500">Expiry Date</p>
-                <p className="text-slate-900">{viewingPermit.expiry_date || '-'}</p>
+                <p className="text-slate-900">{formatDate(viewingPermit.expiry_date)}</p>
+              </div>
+              <div>
+                <p className="text-slate-500">Applied</p>
+                <p className="text-slate-900">{formatDate(viewingPermit.application_date || viewingPermit.created_at)}</p>
               </div>
             </div>
+            {viewingPermit.rejection_reason && (
+              <div className="pt-4 border-t border-slate-200">
+                <p className="text-slate-500 text-sm">Rejection Reason</p>
+                <p className="text-red-600 text-sm mt-1">{viewingPermit.rejection_reason}</p>
+              </div>
+            )}
           </div>
         )}
       </Modal>
@@ -336,7 +402,7 @@ export default function Permits() {
         onClose={() => setIsConfirmOpen(false)}
         onConfirm={handleDelete}
         title="Delete Permit"
-        message="Are you sure you want to delete this permit? This action cannot be undone."
+        message="Are you sure you want to delete this permit application? This action cannot be undone."
       />
     </div>
   );

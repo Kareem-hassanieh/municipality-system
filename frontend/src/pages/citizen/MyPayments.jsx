@@ -11,6 +11,15 @@ export default function MyPayments() {
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
   const [payingItem, setPayingItem] = useState(null);
 
+  const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric' 
+    });
+  };
+
   useEffect(() => {
     fetchPayments();
   }, []);
@@ -146,7 +155,7 @@ export default function MyPayments() {
                 <div>
                   <h3 className="font-medium text-slate-800">{formatType(payment.type)}</h3>
                   <p className="text-sm text-slate-500">
-                    {payment.reference_number} • {payment.due_date || new Date(payment.created_at).toLocaleDateString()}
+                    {payment.reference_number} • {formatDate(payment.due_date || payment.created_at)}
                   </p>
                 </div>
               </div>
