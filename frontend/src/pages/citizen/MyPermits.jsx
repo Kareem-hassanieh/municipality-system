@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Eye, Download, FileText } from 'lucide-react';
+import { Plus, Eye, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Modal from '../../components/Modal';
 import api from '../../services/api';
@@ -25,6 +25,101 @@ export default function MyPermits() {
       month: 'short', 
       day: 'numeric' 
     });
+  };
+
+  const downloadCertificate = (permit) => {
+    const certificateHTML = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Permit Certificate - ${permit.title}</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: 'Georgia', serif; background: #f1f5f9; padding: 40px; }
+          .certificate { max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); overflow: hidden; border: 3px solid #1e293b; }
+          .border-design { height: 8px; background: linear-gradient(90deg, #1e293b 0%, #475569 50%, #1e293b 100%); }
+          .header { padding: 40px 40px 20px; text-align: center; border-bottom: 2px solid #e2e8f0; }
+          .logo { font-size: 14px; color: #64748b; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 10px; }
+          .header h1 { font-size: 28px; color: #1e293b; font-weight: normal; margin-bottom: 5px; }
+          .permit-type { display: inline-block; background: #1e293b; color: white; padding: 6px 20px; border-radius: 20px; font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; margin-top: 15px; font-family: 'Segoe UI', Arial, sans-serif; }
+          .body { padding: 30px 40px; text-align: center; }
+          .certify-text { color: #64748b; font-size: 14px; margin-bottom: 15px; }
+          .permit-title { font-size: 24px; color: #1e293b; margin-bottom: 25px; font-style: italic; }
+          .details { background: #f8fafc; border-radius: 8px; padding: 20px; margin: 20px 0; text-align: left; font-family: 'Segoe UI', Arial, sans-serif; }
+          .detail-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e2e8f0; }
+          .detail-row:last-child { border-bottom: none; }
+          .detail-label { color: #64748b; font-size: 13px; }
+          .detail-value { color: #1e293b; font-size: 13px; font-weight: 600; }
+          .valid-badge { display: inline-block; background: #10b981; color: white; padding: 8px 25px; border-radius: 25px; font-size: 14px; font-weight: 600; margin: 20px 0; font-family: 'Segoe UI', Arial, sans-serif; }
+          .footer { padding: 20px 40px 30px; text-align: center; border-top: 2px solid #e2e8f0; }
+          .signature-area { margin: 20px 0; }
+          .signature-line { width: 200px; border-bottom: 1px solid #1e293b; margin: 0 auto 5px; }
+          .signature-text { color: #64748b; font-size: 12px; font-family: 'Segoe UI', Arial, sans-serif; }
+          .generated { color: #94a3b8; font-size: 11px; margin-top: 20px; font-family: 'Segoe UI', Arial, sans-serif; }
+          .print-btn { display: block; width: 100%; max-width: 600px; margin: 20px auto; padding: 12px; background: #1e293b; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; font-family: 'Segoe UI', Arial, sans-serif; }
+          .print-btn:hover { background: #334155; }
+          @media print { 
+            body { background: white; padding: 20px; } 
+            .print-btn { display: none; } 
+            .certificate { box-shadow: none; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="certificate">
+          <div class="border-design"></div>
+          
+          <div class="header">
+            <p class="logo">★ Municipality Portal ★</p>
+            <h1>Permit Certificate</h1>
+            <span class="permit-type">${permit.type} Permit</span>
+          </div>
+          
+          <div class="body">
+            <p class="certify-text">This is to certify that the following permit has been officially granted:</p>
+            <p class="permit-title">"${permit.title}"</p>
+            
+            <div class="details">
+              <div class="detail-row">
+                <span class="detail-label">Permit ID</span>
+                <span class="detail-value">#${permit.id}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Issue Date</span>
+                <span class="detail-value">${formatDate(permit.application_date || permit.created_at)}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Expiry Date</span>
+                <span class="detail-value">${formatDate(permit.expiry_date)}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Fee Paid</span>
+                <span class="detail-value">$${Number(permit.fee || 0).toLocaleString()}</span>
+              </div>
+            </div>
+            
+            <span class="valid-badge">✓ APPROVED & VALID</span>
+          </div>
+          
+          <div class="footer">
+            <div class="signature-area">
+              <div class="signature-line"></div>
+              <p class="signature-text">Authorized Signature</p>
+            </div>
+            <p class="generated">Generated on ${new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}</p>
+          </div>
+          
+          <div class="border-design"></div>
+        </div>
+        
+        <button class="print-btn" onclick="window.print()">🖨️ Print Certificate</button>
+      </body>
+      </html>
+    `;
+
+    const newWindow = window.open('', '_blank');
+    newWindow.document.write(certificateHTML);
+    newWindow.document.close();
   };
 
   useEffect(() => {
@@ -198,7 +293,10 @@ export default function MyPermits() {
                   View
                 </button>
                 {permit.status === 'approved' && (
-                  <button className="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 rounded-lg transition">
+                  <button 
+                    onClick={() => downloadCertificate(permit)}
+                    className="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 rounded-lg transition"
+                  >
                     <Download className="w-4 h-4" />
                     Download
                   </button>
@@ -226,7 +324,7 @@ export default function MyPermits() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Title</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Title <span className="text-red-500">*</span></label>
             <input
               type="text"
               value={formData.title}
@@ -240,7 +338,7 @@ export default function MyPermits() {
             {errors.title && <p className="text-red-500 text-xs mt-1">{errors.title}</p>}
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Description <span className="text-red-500">*</span></label>
             <textarea
               value={formData.description}
               onChange={(e) => {

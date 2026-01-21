@@ -7,6 +7,7 @@ export default function MyProfile() {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
+  const [errors, setErrors] = useState({});
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -16,6 +17,15 @@ export default function MyProfile() {
     date_of_birth: '',
     gender: 'male',
   });
+
+  const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric' 
+    });
+  };
 
   useEffect(() => {
     fetchProfile();
@@ -43,16 +53,83 @@ export default function MyProfile() {
     }
   };
 
+  const validateForm = () => {
+    const newErrors = {};
+
+    if (!formData.first_name.trim()) {
+      newErrors.first_name = 'First name is required';
+    } else if (formData.first_name.trim().length < 2) {
+      newErrors.first_name = 'First name must be at least 2 characters';
+    }
+
+    if (!formData.last_name.trim()) {
+      newErrors.last_name = 'Last name is required';
+    } else if (formData.last_name.trim().length < 2) {
+      newErrors.last_name = 'Last name must be at least 2 characters';
+    }
+
+    // Phone validation (optional but if provided, must be valid)
+    if (formData.phone && !/^[\d\s\-+()]{8,20}$/.test(formData.phone)) {
+      newErrors.phone = 'Please enter a valid phone number';
+    }
+
+    // Date of birth validation (can't be in the future, must be at least 16 years old)
+    if (formData.date_of_birth) {
+      const dob = new Date(formData.date_of_birth);
+      const today = new Date();
+      const minAge = new Date();
+      minAge.setFullYear(minAge.getFullYear() - 16);
+      
+      if (dob > today) {
+        newErrors.date_of_birth = 'Date of birth cannot be in the future';
+      } else if (dob > minAge) {
+        newErrors.date_of_birth = 'You must be at least 16 years old';
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSave = async () => {
+    if (!validateForm()) {
+      toast.error('Please fix the errors before saving');
+      return;
+    }
+
     try {
-      const response = await api.put('/my/profile', formData);
+      const response = await api.put('/my/profile', {
+        first_name: formData.first_name.trim(),
+        last_name: formData.last_name.trim(),
+        phone: formData.phone.trim(),
+        address: formData.address.trim(),
+        city: formData.city.trim(),
+        date_of_birth: formData.date_of_birth || null,
+        gender: formData.gender,
+      });
       setProfile(response.data);
       setIsEditing(false);
+      setErrors({});
       toast.success('Profile updated successfully');
     } catch (error) {
       console.error('Error saving profile:', error);
       toast.error(error.response?.data?.message || 'Error saving profile. Please try again.');
     }
+  };
+
+  const handleCancel = () => {
+    setIsEditing(false);
+    setErrors({});
+    // Reset form to original values
+    setFormData({
+      first_name: profile.citizen?.first_name || '',
+      last_name: profile.citizen?.last_name || '',
+      phone: profile.citizen?.phone || '',
+      address: profile.citizen?.address || '',
+      city: profile.citizen?.city || '',
+      date_of_birth: profile.citizen?.date_of_birth || '',
+      gender: profile.citizen?.gender || 'male',
+    });
   };
 
   if (loading) {
@@ -92,12 +169,14 @@ export default function MyProfile() {
               <p className="text-slate-500">{user?.email}</p>
             </div>
           </div>
-          <button
-            onClick={() => isEditing ? handleSave() : setIsEditing(true)}
-            className="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-900 transition"
-          >
-            {isEditing ? 'Save Changes' : 'Edit Profile'}
-          </button>
+          {!isEditing && (
+            <button
+              onClick={() => setIsEditing(true)}
+              className="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-900 transition"
+            >
+              Edit Profile
+            </button>
+          )}
         </div>
 
         {/* National ID */}
@@ -126,15 +205,21 @@ export default function MyProfile() {
           <div>
             <label className="flex items-center gap-2 text-sm text-slate-500 mb-1">
               <User className="w-4 h-4" />
-              First Name
+              First Name {isEditing && <span className="text-red-500">*</span>}
             </label>
             {isEditing ? (
-              <input
-                type="text"
-                value={formData.first_name}
-                onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none"
-              />
+              <>
+                <input
+                  type="text"
+                  value={formData.first_name}
+                  onChange={(e) => {
+                    setFormData({ ...formData, first_name: e.target.value });
+                    if (errors.first_name) setErrors({ ...errors, first_name: '' });
+                  }}
+                  className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none ${errors.first_name ? 'border-red-500' : 'border-slate-300'}`}
+                />
+                {errors.first_name && <p className="text-red-500 text-xs mt-1">{errors.first_name}</p>}
+              </>
             ) : (
               <p className="text-slate-800">{citizen?.first_name || '-'}</p>
             )}
@@ -143,15 +228,21 @@ export default function MyProfile() {
           <div>
             <label className="flex items-center gap-2 text-sm text-slate-500 mb-1">
               <User className="w-4 h-4" />
-              Last Name
+              Last Name {isEditing && <span className="text-red-500">*</span>}
             </label>
             {isEditing ? (
-              <input
-                type="text"
-                value={formData.last_name}
-                onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none"
-              />
+              <>
+                <input
+                  type="text"
+                  value={formData.last_name}
+                  onChange={(e) => {
+                    setFormData({ ...formData, last_name: e.target.value });
+                    if (errors.last_name) setErrors({ ...errors, last_name: '' });
+                  }}
+                  className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none ${errors.last_name ? 'border-red-500' : 'border-slate-300'}`}
+                />
+                {errors.last_name && <p className="text-red-500 text-xs mt-1">{errors.last_name}</p>}
+              </>
             ) : (
               <p className="text-slate-800">{citizen?.last_name || '-'}</p>
             )}
@@ -171,12 +262,19 @@ export default function MyProfile() {
               Phone
             </label>
             {isEditing ? (
-              <input
-                type="text"
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none"
-              />
+              <>
+                <input
+                  type="text"
+                  value={formData.phone}
+                  onChange={(e) => {
+                    setFormData({ ...formData, phone: e.target.value });
+                    if (errors.phone) setErrors({ ...errors, phone: '' });
+                  }}
+                  className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none ${errors.phone ? 'border-red-500' : 'border-slate-300'}`}
+                  placeholder="+961 XX XXX XXX"
+                />
+                {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
+              </>
             ) : (
               <p className="text-slate-800">{citizen?.phone || '-'}</p>
             )}
@@ -188,14 +286,20 @@ export default function MyProfile() {
               Date of Birth
             </label>
             {isEditing ? (
-              <input
-                type="date"
-                value={formData.date_of_birth}
-                onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none"
-              />
+              <>
+                <input
+                  type="date"
+                  value={formData.date_of_birth}
+                  onChange={(e) => {
+                    setFormData({ ...formData, date_of_birth: e.target.value });
+                    if (errors.date_of_birth) setErrors({ ...errors, date_of_birth: '' });
+                  }}
+                  className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none ${errors.date_of_birth ? 'border-red-500' : 'border-slate-300'}`}
+                />
+                {errors.date_of_birth && <p className="text-red-500 text-xs mt-1">{errors.date_of_birth}</p>}
+              </>
             ) : (
-              <p className="text-slate-800">{citizen?.date_of_birth || '-'}</p>
+              <p className="text-slate-800">{formatDate(citizen?.date_of_birth)}</p>
             )}
           </div>
 
@@ -247,6 +351,7 @@ export default function MyProfile() {
               value={formData.address}
               onChange={(e) => setFormData({ ...formData, address: e.target.value })}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none"
+              placeholder="Street address"
             />
           ) : (
             <p className="text-slate-800">{citizen?.address || '-'}</p>
@@ -256,7 +361,7 @@ export default function MyProfile() {
         {isEditing && (
           <div className="flex gap-3 pt-4">
             <button
-              onClick={() => setIsEditing(false)}
+              onClick={handleCancel}
               className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition"
             >
               Cancel

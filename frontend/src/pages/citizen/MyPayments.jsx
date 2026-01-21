@@ -20,6 +20,96 @@ export default function MyPayments() {
     });
   };
 
+  const downloadReceipt = (payment) => {
+    const receiptHTML = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Receipt - ${payment.reference_number}</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: 'Segoe UI', Arial, sans-serif; background: #f1f5f9; padding: 40px; }
+          .receipt { max-width: 500px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); overflow: hidden; }
+          .header { background: #1e293b; color: white; padding: 30px; text-align: center; }
+          .header h1 { font-size: 24px; margin-bottom: 5px; }
+          .header p { opacity: 0.8; font-size: 14px; }
+          .status { display: inline-block; background: #10b981; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-top: 15px; }
+          .section { padding: 20px 30px; border-bottom: 1px solid #e2e8f0; }
+          .section:last-child { border-bottom: none; }
+          .row { display: flex; justify-content: space-between; margin-bottom: 10px; }
+          .row:last-child { margin-bottom: 0; }
+          .label { color: #64748b; font-size: 14px; }
+          .value { color: #1e293b; font-size: 14px; font-weight: 500; }
+          .amount-section { background: #f8fafc; padding: 25px 30px; text-align: center; }
+          .amount-label { color: #64748b; font-size: 14px; margin-bottom: 5px; }
+          .amount { font-size: 36px; font-weight: 700; color: #1e293b; }
+          .footer { padding: 20px 30px; text-align: center; color: #64748b; font-size: 12px; }
+          .footer p { margin-bottom: 5px; }
+          .print-btn { display: block; width: 100%; max-width: 500px; margin: 20px auto; padding: 12px; background: #1e293b; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; }
+          .print-btn:hover { background: #334155; }
+          @media print { 
+            body { background: white; padding: 0; } 
+            .print-btn { display: none; } 
+            .receipt { box-shadow: none; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="receipt">
+          <div class="header">
+            <h1>Payment Receipt</h1>
+            <p>Municipality Portal</p>
+            <span class="status">✓ PAID</span>
+          </div>
+          
+          <div class="section">
+            <div class="row">
+              <span class="label">Reference Number</span>
+              <span class="value" style="font-family: monospace;">${payment.reference_number}</span>
+            </div>
+            <div class="row">
+              <span class="label">Payment Date</span>
+              <span class="value">${formatDate(payment.payment_date || payment.updated_at)}</span>
+            </div>
+            <div class="row">
+              <span class="label">Payment Method</span>
+              <span class="value" style="text-transform: capitalize;">${payment.payment_method || 'Card'}</span>
+            </div>
+          </div>
+          
+          <div class="section">
+            <div class="row">
+              <span class="label">Type</span>
+              <span class="value">${(payment.type || '').split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}</span>
+            </div>
+            <div class="row">
+              <span class="label">Description</span>
+              <span class="value">${payment.description || '-'}</span>
+            </div>
+          </div>
+          
+          <div class="amount-section">
+            <p class="amount-label">Amount Paid</p>
+            <p class="amount">$${Number(payment.amount || 0).toLocaleString()}</p>
+          </div>
+          
+          <div class="footer">
+            <p>Thank you for your payment!</p>
+            <p>This is an official receipt from Municipality Portal.</p>
+            <p>Generated on ${new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}</p>
+          </div>
+        </div>
+        
+        <button class="print-btn" onclick="window.print()">🖨️ Print Receipt</button>
+      </body>
+      </html>
+    `;
+
+    const newWindow = window.open('', '_blank');
+    newWindow.document.write(receiptHTML);
+    newWindow.document.close();
+  };
+
   useEffect(() => {
     fetchPayments();
   }, []);
@@ -174,7 +264,11 @@ export default function MyPayments() {
                     Pay
                   </button>
                 ) : (
-                  <button className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600">
+                  <button 
+                    onClick={() => downloadReceipt(payment)}
+                    className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600"
+                    title="Download Receipt"
+                  >
                     <Download className="w-5 h-5" />
                   </button>
                 )}
