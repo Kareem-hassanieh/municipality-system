@@ -32,13 +32,15 @@ export default function Permits() {
 
   const fetchPermits = async () => {
     try {
+      setLoading(true);
       const response = await api.get('/permits');
       const data = response.data || [];
       setPermits(Array.isArray(data) ? data : []);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching permits:', error);
-      setPermits([]);
+      toast.error('Failed to load permits. Please refresh the page.');
+      // Don't clear existing data on error to prevent appearing like data disappeared
       setLoading(false);
     }
   };
@@ -106,10 +108,13 @@ export default function Permits() {
     try {
       await api.delete(`/permits/${deletingId}`);
       toast.success('Permit deleted successfully');
+      setIsConfirmOpen(false);
+      setDeletingId(null);
       fetchPermits();
     } catch (error) {
       console.error('Error deleting permit:', error);
       toast.error(error.response?.data?.message || 'Error deleting permit. Please try again.');
+      setIsConfirmOpen(false);
     }
   };
 

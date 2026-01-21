@@ -8,12 +8,11 @@ use Illuminate\Http\Request;
 
 class PaymentController extends Controller
 {
-    public function index()
-    {
-        $payments = Payment::all();
-        return response()->json($payments);
-    }
-
+   public function index()
+{
+    $payments = Payment::with('citizen')->get();
+    return response()->json($payments);
+}
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -35,12 +34,11 @@ class PaymentController extends Controller
         $payment = Payment::create($validated);
         return response()->json($payment, 201);
     }
-
-    public function show(Payment $payment)
-    {
-        return response()->json($payment);
-    }
-
+public function show(Payment $payment)
+{
+    $payment->load('citizen');
+    return response()->json($payment);
+}
     public function update(Request $request, Payment $payment)
     {
         $validated = $request->validate([

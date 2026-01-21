@@ -8,23 +8,41 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    try {
-      const token = localStorage.getItem('token');
-      const storedUser = localStorage.getItem('user');
-      
-      if (token && storedUser && storedUser !== 'undefined') {
-        setUser(JSON.parse(storedUser));
-      } else {
-        // Clear invalid data
+    const verifyAuth = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        
+        if (!token) {
+          localStorage.removeItem('user');
+          setLoading(false);
+          return;
+        }
+
+        // Always verify with server to get fresh user data
+        try {
+          const response = await api.get('/user');
+          const freshUser = response.data;
+          
+          // Update with fresh data from server
+          setUser(freshUser);
+          localStorage.setItem('user', JSON.stringify(freshUser));
+        } catch (error) {
+          // Token invalid - clear everything
+          console.error('Token verification failed:', error);
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          setUser(null);
+        }
+      } catch (error) {
+        console.error('Auth error:', error);
         localStorage.removeItem('token');
         localStorage.removeItem('user');
+        setUser(null);
       }
-    } catch (error) {
-      // Clear corrupted data
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-    }
-    setLoading(false);
+      setLoading(false);
+    };
+
+    verifyAuth();
   }, []);
 
   const login = async (email, password) => {
@@ -67,7 +85,10 @@ export function AuthProvider({ children }) {
   };
 
   const isAuthenticated = !!user;
-  const isAdmin = user?.role !== 'citizen';
+  
+  // Fixed: Explicitly check for admin roles
+  const isAdmin = user?.role && ['admin', 'finance_officer', 'urban_planner', 'hr_manager', 'clerk'].includes(user.role);
+  
   const isCitizen = user?.role === 'citizen';
 
   return (

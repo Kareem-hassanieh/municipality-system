@@ -34,13 +34,15 @@ export default function Citizens() {
 
   const fetchCitizens = async () => {
     try {
+      setLoading(true);
       const response = await api.get('/citizens');
       const data = response.data || [];
       setCitizens(Array.isArray(data) ? data : []);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching citizens:', error);
-      setCitizens([]);
+      toast.error('Failed to load citizens. Please refresh the page.');
+      // Don't clear existing data on error to prevent appearing like data disappeared
       setLoading(false);
     }
   };
@@ -109,10 +111,13 @@ export default function Citizens() {
     try {
       await api.delete(`/citizens/${deletingId}`);
       toast.success('Citizen deleted successfully');
+      setIsConfirmOpen(false);
+      setDeletingId(null);
       fetchCitizens();
     } catch (error) {
       console.error('Error deleting citizen:', error);
       toast.error(error.response?.data?.message || 'Error deleting citizen. Please try again.');
+      setIsConfirmOpen(false);
     }
   };
 

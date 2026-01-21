@@ -31,13 +31,15 @@ export default function Requests() {
 
   const fetchRequests = async () => {
     try {
+      setLoading(true);
       const response = await api.get('/requests');
       const data = response.data || [];
       setRequests(Array.isArray(data) ? data : []);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching requests:', error);
-      setRequests([]);
+      toast.error('Failed to load requests. Please refresh the page.');
+      // Don't clear existing data on error to prevent appearing like data disappeared
       setLoading(false);
     }
   };
@@ -99,10 +101,13 @@ export default function Requests() {
     try {
       await api.delete(`/requests/${deletingId}`);
       toast.success('Request deleted successfully');
+      setIsConfirmOpen(false);
+      setDeletingId(null);
       fetchRequests();
     } catch (error) {
       console.error('Error deleting request:', error);
       toast.error(error.response?.data?.message || 'Error deleting request. Please try again.');
+      setIsConfirmOpen(false);
     }
   };
 

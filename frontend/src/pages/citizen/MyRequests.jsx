@@ -23,13 +23,15 @@ export default function MyRequests() {
 
   const fetchRequests = async () => {
     try {
+      setLoading(true);
       const response = await api.get('/my/requests');
       const data = response.data || [];
       setRequests(Array.isArray(data) ? data : []);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching requests:', error);
-      setRequests([]);
+      toast.error('Failed to load requests. Please refresh the page.');
+      // Don't clear existing data on error to prevent appearing like data disappeared
       setLoading(false);
     }
   };

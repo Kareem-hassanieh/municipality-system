@@ -6,6 +6,7 @@ import api from '../services/api';
 
 export default function Payments() {
   const [payments, setPayments] = useState([]);
+  const [citizens, setCitizens] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
@@ -25,6 +26,7 @@ export default function Payments() {
 
   useEffect(() => {
     fetchPayments();
+    fetchCitizens();
   }, []);
 
   const fetchPayments = async () => {
@@ -40,9 +42,21 @@ export default function Payments() {
     }
   };
 
+  const fetchCitizens = async () => {
+    try {
+      const response = await api.get('/citizens');
+      const data = response.data || [];
+      setCitizens(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Error fetching citizens:', error);
+    }
+  };
+
   const filteredPayments = payments.filter(payment => {
     const matchesSearch = (payment.reference_number || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (payment.description || '').toLowerCase().includes(searchTerm.toLowerCase());
+      (payment.description || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (payment.citizen?.first_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (payment.citizen?.last_name || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = !typeFilter || payment.type === typeFilter;
     const matchesStatus = !statusFilter || payment.status === statusFilter;
     return matchesSearch && matchesType && matchesStatus;
@@ -162,7 +176,7 @@ export default function Payments() {
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200">
                 <th className="text-left px-5 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Reference</th>
-                <th className="text-left px-5 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Citizen ID</th>
+                <th className="text-left px-5 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Citizen</th>
                 <th className="text-left px-5 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Type</th>
                 <th className="text-left px-5 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Amount</th>
                 <th className="text-left px-5 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Status</th>
@@ -182,7 +196,14 @@ export default function Payments() {
                       <span className="text-sm font-medium text-slate-800 font-mono">{payment.reference_number}</span>
                     </td>
                     <td className="px-5 py-4">
-                      <span className="text-sm text-slate-600">{payment.citizen_id || '-'}</span>
+                      {payment.citizen ? (
+                        <div>
+                          <p className="text-sm font-medium text-slate-800">{payment.citizen.first_name} {payment.citizen.last_name}</p>
+                          <p className="text-xs text-slate-500">{payment.citizen.national_id}</p>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-slate-400">-</span>
+                      )}
                     </td>
                     <td className="px-5 py-4">
                       <span className="text-sm text-slate-600">{formatType(payment.type)}</span>
@@ -220,14 +241,19 @@ export default function Payments() {
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Record Payment">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Citizen ID (optional)</label>
-            <input 
-              type="number" 
+            <label className="block text-sm font-medium text-slate-700 mb-1">Citizen</label>
+            <select 
               value={formData.citizen_id} 
               onChange={(e) => setFormData({ ...formData, citizen_id: e.target.value })} 
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" 
-              placeholder="Enter citizen ID (e.g., 5 or 6)"
-            />
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none"
+            >
+              <option value="">Select Citizen (optional)</option>
+              {citizens.map((citizen) => (
+                <option key={citizen.id} value={citizen.id}>
+                  {citizen.first_name} {citizen.last_name} ({citizen.national_id})
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Type</label>
@@ -292,8 +318,12 @@ export default function Payments() {
                 <p className="text-slate-900 font-mono">{viewingPayment.reference_number}</p>
               </div>
               <div>
-                <p className="text-slate-500">Citizen ID</p>
-                <p className="text-slate-900">{viewingPayment.citizen_id || '-'}</p>
+                <p className="text-slate-500">Citizen</p>
+                <p className="text-slate-900">
+                  {viewingPayment.citizen 
+                    ? `${viewingPayment.citizen.first_name} ${viewingPayment.citizen.last_name}` 
+                    : '-'}
+                </p>
               </div>
               <div>
                 <p className="text-slate-500">Type</p>

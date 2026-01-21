@@ -10,7 +10,7 @@ class CitizenController extends Controller
 {
     public function index()
     {
-        $citizens = Citizen::all();
+        $citizens = Citizen::with('user')->get();
         return response()->json($citizens);
     }
 
@@ -41,6 +41,7 @@ class CitizenController extends Controller
 
     public function show(Citizen $citizen)
     {
+        $citizen->load('user');
         return response()->json($citizen);
     }
 
@@ -57,7 +58,7 @@ class CitizenController extends Controller
             'is_verified' => 'nullable',
         ]);
 
-        // Handle date separately
+        // Handle date separately - allow null values
         if ($request->has('date_of_birth')) {
             $validated['date_of_birth'] = $request->date_of_birth ?: null;
         }
@@ -67,13 +68,41 @@ class CitizenController extends Controller
             $validated['is_verified'] = filter_var($request->is_verified, FILTER_VALIDATE_BOOLEAN);
         }
 
-        $citizen->update($validated);
-        return response()->json($citizen);
+        // Only update fields that are present in the request to prevent data loss
+        $updateData = [];
+        foreach ($validated as $key => $value) {
+            if ($request->has($key)) {
+                $updateData[$key] = $value;
+            }
+        }
+
+        // Update the citizen record
+        if (!empty($updateData)) {
+            $citizen->update($updateData);
+        }
+
+        // Return fresh data from database
+        return response()->json($citizen->fresh());
     }
 
     public function destroy(Citizen $citizen)
     {
-        $citizen->delete();
-        return response()->json(null, 204);
+        try {
+            // Check if citizen has related records before deleting
+            if ($citizen->requests()->count() > 0 || 
+                $citizen->permits()->count() > 0 || 
+                $citizen->payments()->count() > 0) {
+                return response()->json([
+                    'message' => 'Cannot delete citizen with existing requests, permits, or payments'
+                ], 422);
+            }
+            
+            $citizen->delete();
+            return response()->json(['message' => 'Citizen deleted successfully'], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Error deleting citizen: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

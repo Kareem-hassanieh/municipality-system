@@ -14,6 +14,7 @@ export default function MyProfile() {
     address: '',
     city: '',
     date_of_birth: '',
+    gender: 'male',
   });
 
   useEffect(() => {
@@ -22,6 +23,7 @@ export default function MyProfile() {
 
   const fetchProfile = async () => {
     try {
+      setLoading(true);
       const response = await api.get('/my/profile');
       setProfile(response.data);
       setFormData({
@@ -31,10 +33,12 @@ export default function MyProfile() {
         address: response.data.citizen?.address || '',
         city: response.data.citizen?.city || '',
         date_of_birth: response.data.citizen?.date_of_birth || '',
+        gender: response.data.citizen?.gender || 'male',
       });
       setLoading(false);
     } catch (error) {
       console.error('Error fetching profile:', error);
+      toast.error('Failed to load profile. Please refresh the page.');
       setLoading(false);
     }
   };
@@ -209,6 +213,25 @@ export default function MyProfile() {
               />
             ) : (
               <p className="text-slate-800">{citizen?.city || '-'}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="flex items-center gap-2 text-sm text-slate-500 mb-1">
+              <User className="w-4 h-4" />
+              Gender
+            </label>
+            {isEditing ? (
+              <select
+                value={formData.gender}
+                onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none"
+              >
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+              </select>
+            ) : (
+              <p className="text-slate-800 capitalize">{citizen?.gender || '-'}</p>
             )}
           </div>
         </div>

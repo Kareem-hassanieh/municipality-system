@@ -87,7 +87,7 @@ export default function CitizenDashboard() {
     <div className="space-y-6">
       {/* Welcome */}
       <div>
-        <h1 className="text-2xl font-semibold text-slate-800">Welcome Back!</h1>
+        <h1 className="text-2xl font-semibold text-slate-800">Welcome !!</h1>
         <p className="text-slate-500 mt-1">Here's an overview of your activity</p>
       </div>
 

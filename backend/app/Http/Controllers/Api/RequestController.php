@@ -10,8 +10,14 @@ class RequestController extends Controller
 {
     public function index()
     {
-        $requests = ServiceRequest::all();
-        return response()->json($requests);
+        try {
+            $requests = ServiceRequest::with(['citizen', 'department', 'assignedTo'])->get();
+            return response()->json($requests);
+        } catch (\Exception $e) {
+            // Fallback to basic query if relationships fail
+            $requests = ServiceRequest::all();
+            return response()->json($requests);
+        }
     }
 
     public function store(Request $request)
@@ -34,6 +40,11 @@ class RequestController extends Controller
 
     public function show(ServiceRequest $request)
     {
+        try {
+            $request->load(['citizen', 'department', 'assignedTo']);
+        } catch (\Exception $e) {
+            // Continue without relationships if loading fails
+        }
         return response()->json($request);
     }
 
@@ -48,17 +59,43 @@ class RequestController extends Controller
             'admin_notes' => 'nullable|string',
         ]);
 
-        if ($httpRequest->status === 'completed') {
+        // Auto-set completion_date when status changes to completed
+        if ($httpRequest->has('status') && $httpRequest->status === 'completed' && !$request->completion_date) {
             $validated['completion_date'] = now();
         }
 
-        $request->update($validated);
-        return response()->json($request);
+        // Only update fields that are present in the request to prevent data loss
+        $updateData = [];
+        foreach ($validated as $key => $value) {
+            if ($httpRequest->has($key)) {
+                $updateData[$key] = $value;
+            }
+        }
+
+        // Update the request record
+        if (!empty($updateData)) {
+            $request->update($updateData);
+        }
+
+        // Return fresh data with relationships
+        $freshRequest = $request->fresh();
+        try {
+            $freshRequest->load(['citizen', 'department', 'assignedTo']);
+        } catch (\Exception $e) {
+            // Continue without relationships if loading fails
+        }
+        return response()->json($freshRequest);
     }
 
     public function destroy(ServiceRequest $request)
     {
-        $request->delete();
-        return response()->json(null, 204);
+        try {
+            $request->delete();
+            return response()->json(['message' => 'Request deleted successfully'], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Error deleting request: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

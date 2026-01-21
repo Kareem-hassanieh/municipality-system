@@ -23,13 +23,15 @@ export default function MyPermits() {
 
   const fetchPermits = async () => {
     try {
+      setLoading(true);
       const response = await api.get('/my/permits');
       const data = response.data || [];
       setPermits(Array.isArray(data) ? data : []);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching permits:', error);
-      setPermits([]);
+      toast.error('Failed to load permits. Please refresh the page.');
+      // Don't clear existing data on error to prevent appearing like data disappeared
       setLoading(false);
     }
   };

@@ -10,8 +10,14 @@ class PermitController extends Controller
 {
     public function index()
     {
-        $permits = Permit::all();
-        return response()->json($permits);
+        try {
+            $permits = Permit::with(['citizen', 'department', 'reviewedBy'])->get();
+            return response()->json($permits);
+        } catch (\Exception $e) {
+            // Fallback to basic query if relationships fail
+            $permits = Permit::all();
+            return response()->json($permits);
+        }
     }
 
     public function store(Request $request)
@@ -35,6 +41,11 @@ class PermitController extends Controller
 
     public function show(Permit $permit)
     {
+        try {
+            $permit->load(['citizen', 'department', 'reviewedBy']);
+        } catch (\Exception $e) {
+            // Continue without relationships if loading fails
+        }
         return response()->json($permit);
     }
 
@@ -52,17 +63,43 @@ class PermitController extends Controller
             'rejection_reason' => 'nullable|string',
         ]);
 
-        if ($request->status === 'approved' && !$permit->issue_date) {
+        // Auto-set issue_date when status changes to approved
+        if ($request->has('status') && $request->status === 'approved' && !$permit->issue_date) {
             $validated['issue_date'] = now();
         }
 
-        $permit->update($validated);
-        return response()->json($permit);
+        // Only update fields that are present in the request to prevent data loss
+        $updateData = [];
+        foreach ($validated as $key => $value) {
+            if ($request->has($key)) {
+                $updateData[$key] = $value;
+            }
+        }
+
+        // Update the permit record
+        if (!empty($updateData)) {
+            $permit->update($updateData);
+        }
+
+        // Return fresh data with relationships
+        $freshPermit = $permit->fresh();
+        try {
+            $freshPermit->load(['citizen', 'department', 'reviewedBy']);
+        } catch (\Exception $e) {
+            // Continue without relationships if loading fails
+        }
+        return response()->json($freshPermit);
     }
 
     public function destroy(Permit $permit)
     {
-        $permit->delete();
-        return response()->json(null, 204);
+        try {
+            $permit->delete();
+            return response()->json(['message' => 'Permit deleted successfully'], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Error deleting permit: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }
