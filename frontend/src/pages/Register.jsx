@@ -9,19 +9,61 @@ export default function Register() {
   const [password, setPassword] = useState('');
   const [passwordConfirmation, setPasswordConfirmation] = useState('');
   const [error, setError] = useState('');
+  const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   
   const { register } = useAuth();
   const navigate = useNavigate();
 
+  const validateForm = () => {
+    const newErrors = {};
+
+    // Name validation
+    if (!name.trim()) {
+      newErrors.name = 'Name is required';
+    } else if (name.trim().length < 2) {
+      newErrors.name = 'Name must be at least 2 characters';
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email.trim()) {
+      newErrors.email = 'Email is required';
+    } else if (!emailRegex.test(email)) {
+      newErrors.email = 'Please enter a valid email address';
+    }
+
+    // Password validation
+    if (!password) {
+      newErrors.password = 'Password is required';
+    } else if (password.length < 8) {
+      newErrors.password = 'Password must be at least 8 characters';
+    }
+
+    // Confirm password validation
+    if (!passwordConfirmation) {
+      newErrors.passwordConfirmation = 'Please confirm your password';
+    } else if (password !== passwordConfirmation) {
+      newErrors.passwordConfirmation = 'Passwords do not match';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+
+    // Validate before submit
+    if (!validateForm()) {
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const user = await register(name, email, password, passwordConfirmation);
-      // Registration always creates citizen account, but redirect based on role for safety
+      const user = await register(name.trim(), email.trim(), password, passwordConfirmation);
       if (user?.role === 'citizen') {
         navigate('/citizen');
       } else {
@@ -82,12 +124,15 @@ export default function Register() {
                 <input
                   type="text"
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none"
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    if (errors.name) setErrors({ ...errors, name: '' });
+                  }}
+                  className={`w-full pl-10 pr-4 py-2.5 border rounded focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none ${errors.name ? 'border-red-500' : 'border-slate-300'}`}
                   placeholder="John Doe"
-                  required
                 />
               </div>
+              {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
             </div>
 
             <div>
@@ -99,12 +144,15 @@ export default function Register() {
                 <input
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none"
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (errors.email) setErrors({ ...errors, email: '' });
+                  }}
+                  className={`w-full pl-10 pr-4 py-2.5 border rounded focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none ${errors.email ? 'border-red-500' : 'border-slate-300'}`}
                   placeholder="you@example.com"
-                  required
                 />
               </div>
+              {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
             </div>
 
             <div>
@@ -116,12 +164,15 @@ export default function Register() {
                 <input
                   type="password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none"
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (errors.password) setErrors({ ...errors, password: '' });
+                  }}
+                  className={`w-full pl-10 pr-4 py-2.5 border rounded focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none ${errors.password ? 'border-red-500' : 'border-slate-300'}`}
                   placeholder="Min. 8 characters"
-                  required
                 />
               </div>
+              {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
             </div>
 
             <div>
@@ -133,12 +184,15 @@ export default function Register() {
                 <input
                   type="password"
                   value={passwordConfirmation}
-                  onChange={(e) => setPasswordConfirmation(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none"
+                  onChange={(e) => {
+                    setPasswordConfirmation(e.target.value);
+                    if (errors.passwordConfirmation) setErrors({ ...errors, passwordConfirmation: '' });
+                  }}
+                  className={`w-full pl-10 pr-4 py-2.5 border rounded focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none ${errors.passwordConfirmation ? 'border-red-500' : 'border-slate-300'}`}
                   placeholder="Confirm your password"
-                  required
                 />
               </div>
+              {errors.passwordConfirmation && <p className="text-red-500 text-xs mt-1">{errors.passwordConfirmation}</p>}
             </div>
 
             <button
