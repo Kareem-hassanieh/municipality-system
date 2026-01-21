@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\EventController;
 use App\Http\Controllers\Api\DocumentController;
 use App\Http\Controllers\Api\CitizenPortalController;
+use App\Http\Controllers\Api\NotificationController;
 
 // Auth routes
 Route::post('/register', [AuthController::class, 'register']);
@@ -45,4 +46,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/my/permits', [CitizenPortalController::class, 'applyPermit']);
     Route::get('/my/payments', [CitizenPortalController::class, 'payments']);
     Route::post('/my/payments/{payment}/pay', [CitizenPortalController::class, 'payBill']);
+    Route::get('/my/events', [CitizenPortalController::class, 'events']);
+    Route::get('/my/projects', [CitizenPortalController::class, 'projects']);
+
+    // Notification Routes
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
+    Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
+    Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllAsRead']);
+    Route::delete('/notifications/{id}', [NotificationController::class, 'destroy']);
 });

@@ -1,13 +1,16 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Home, FileText, ClipboardList, CreditCard, User, LogOut, Menu, X } from 'lucide-react';
+import NotificationBell from '../components/NotificationBell';
+import { Home, FileText, ClipboardList, CreditCard, User, LogOut, Menu, X, Calendar, Building2 } from 'lucide-react';
 
 const navigation = [
   { name: 'Home', href: '/citizen', icon: Home },
   { name: 'My Requests', href: '/citizen/requests', icon: FileText },
   { name: 'My Permits', href: '/citizen/permits', icon: ClipboardList },
   { name: 'My Payments', href: '/citizen/payments', icon: CreditCard },
+  { name: 'Events', href: '/citizen/events', icon: Calendar },
+  { name: 'Projects', href: '/citizen/projects', icon: Building2 },
   { name: 'Profile', href: '/citizen/profile', icon: User },
 ];
 
@@ -56,6 +59,7 @@ export default function CitizenLayout({ children }) {
 
             {/* Desktop User Menu */}
             <div className="hidden md:flex items-center gap-4">
+              <NotificationBell />
               <span className="text-sm text-slate-600">{user?.name}</span>
               <button
                 onClick={handleLogout}
@@ -66,12 +70,15 @@ export default function CitizenLayout({ children }) {
             </div>
 
             {/* Mobile Menu Button */}
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 text-slate-600 hover:text-slate-900"
-            >
-              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </button>
+            <div className="md:hidden flex items-center gap-2">
+              <NotificationBell />
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="p-2 text-slate-600 hover:text-slate-900"
+              >
+                {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              </button>
+            </div>
           </div>
         </div>
 

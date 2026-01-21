@@ -4,9 +4,16 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Citizen;
+use App\Models\User;
 use App\Models\Request as ServiceRequest;
 use App\Models\Permit;
 use App\Models\Payment;
+use App\Models\Event;
+use App\Models\Project;
+use App\Notifications\RequestStatusNotification;
+use App\Notifications\PermitStatusNotification;
+use App\Notifications\PaymentNotification;
+use App\Notifications\AdminPaymentNotification;
 use Illuminate\Http\Request;
 
 class CitizenPortalController extends Controller
@@ -16,11 +23,10 @@ class CitizenPortalController extends Controller
         return Citizen::where('user_id', $request->user()->id)->first();
     }
 
-    public function profile(Request $request)
+    private function getOrCreateCitizen(Request $request)
     {
         $citizen = $this->getCitizen($request);
         
-        // Auto-create citizen profile if it doesn't exist
         if (!$citizen) {
             $user = $request->user();
             $citizen = Citizen::create([
@@ -28,13 +34,20 @@ class CitizenPortalController extends Controller
                 'national_id' => 'CIT-' . str_pad($user->id, 5, '0', STR_PAD_LEFT),
                 'first_name' => explode(' ', $user->name)[0],
                 'last_name' => explode(' ', $user->name)[1] ?? '',
-                'date_of_birth' => now()->subYears(25)->format('Y-m-d'), // Default age 25
-                'gender' => 'male', // Default gender
+                'date_of_birth' => now()->subYears(25)->format('Y-m-d'),
+                'gender' => 'male',
                 'address' => 'Not provided',
                 'city' => 'Not provided',
                 'is_verified' => false,
             ]);
         }
+
+        return $citizen;
+    }
+
+    public function profile(Request $request)
+    {
+        $citizen = $this->getOrCreateCitizen($request);
 
         return response()->json([
             'citizen' => $citizen,
@@ -50,7 +63,6 @@ class CitizenPortalController extends Controller
             return response()->json(['message' => 'Citizen profile not found'], 404);
         }
 
-        // Validate all possible fields
         $validated = $request->validate([
             'first_name' => 'sometimes|string|max:100',
             'last_name' => 'sometimes|string|max:100',
@@ -61,7 +73,6 @@ class CitizenPortalController extends Controller
             'date_of_birth' => 'nullable|date',
         ]);
 
-        // Only update fields that are present in the request
         $updateData = [];
         foreach ($validated as $key => $value) {
             if ($request->has($key)) {
@@ -69,7 +80,6 @@ class CitizenPortalController extends Controller
             }
         }
 
-        // Update the citizen record if there's data to update
         if (!empty($updateData)) {
             $citizen->update($updateData);
         }
@@ -97,23 +107,7 @@ class CitizenPortalController extends Controller
 
     public function createRequest(Request $request)
     {
-        $citizen = $this->getCitizen($request);
-        
-        // Auto-create citizen profile if it doesn't exist
-        if (!$citizen) {
-            $user = $request->user();
-            $citizen = Citizen::create([
-                'user_id' => $user->id,
-                'national_id' => 'CIT-' . str_pad($user->id, 5, '0', STR_PAD_LEFT),
-                'first_name' => explode(' ', $user->name)[0],
-                'last_name' => explode(' ', $user->name)[1] ?? '',
-                'date_of_birth' => now()->subYears(25)->format('Y-m-d'), // Default age 25
-                'gender' => 'male', // Default gender
-                'address' => 'Not provided',
-                'city' => 'Not provided',
-                'is_verified' => false,
-            ]);
-        }
+        $citizen = $this->getOrCreateCitizen($request);
 
         $validated = $request->validate([
             'type' => 'required|string|max:50',
@@ -127,6 +121,15 @@ class CitizenPortalController extends Controller
         $validated['submission_date'] = now();
 
         $serviceRequest = ServiceRequest::create($validated);
+
+        // Send notification to citizen
+        $request->user()->notify(new RequestStatusNotification($serviceRequest));
+
+        // Notify admins about new request
+        $admins = User::whereIn('role', ['admin', 'clerk'])->get();
+        foreach ($admins as $admin) {
+            $admin->notify(new RequestStatusNotification($serviceRequest));
+        }
 
         return response()->json($serviceRequest, 201);
     }
@@ -148,23 +151,7 @@ class CitizenPortalController extends Controller
 
     public function applyPermit(Request $request)
     {
-        $citizen = $this->getCitizen($request);
-        
-        // Auto-create citizen profile if it doesn't exist
-        if (!$citizen) {
-            $user = $request->user();
-            $citizen = Citizen::create([
-                'user_id' => $user->id,
-                'national_id' => 'CIT-' . str_pad($user->id, 5, '0', STR_PAD_LEFT),
-                'first_name' => explode(' ', $user->name)[0],
-                'last_name' => explode(' ', $user->name)[1] ?? '',
-                'date_of_birth' => now()->subYears(25)->format('Y-m-d'), // Default age 25
-                'gender' => 'male', // Default gender
-                'address' => 'Not provided',
-                'city' => 'Not provided',
-                'is_verified' => false,
-            ]);
-        }
+        $citizen = $this->getOrCreateCitizen($request);
 
         $validated = $request->validate([
             'type' => 'required|string|max:50',
@@ -178,6 +165,15 @@ class CitizenPortalController extends Controller
         $validated['is_paid'] = false;
 
         $permit = Permit::create($validated);
+
+        // Send notification to citizen
+        $request->user()->notify(new PermitStatusNotification($permit));
+
+        // Notify admins about new permit application
+        $admins = User::whereIn('role', ['admin', 'urban_planner'])->get();
+        foreach ($admins as $admin) {
+            $admin->notify(new PermitStatusNotification($permit));
+        }
 
         return response()->json($permit, 201);
     }
@@ -205,6 +201,11 @@ class CitizenPortalController extends Controller
             return response()->json(['message' => 'Payment not found'], 404);
         }
 
+        // Check if already paid
+        if ($payment->status === 'completed') {
+            return response()->json(['message' => 'This bill has already been paid'], 400);
+        }
+
         $payment->update([
             'status' => 'completed',
             'payment_date' => now(),
@@ -212,6 +213,38 @@ class CitizenPortalController extends Controller
             'receipt_number' => 'RCP-' . date('Y') . '-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT),
         ]);
 
+        // Send receipt notification to citizen
+        $request->user()->notify(new PaymentNotification($payment, 'receipt'));
+
+        // Notify admins about the payment
+        $admins = User::whereIn('role', ['admin', 'finance_officer'])->get();
+        foreach ($admins as $admin) {
+            $admin->notify(new AdminPaymentNotification($payment, $citizen));
+        }
+
         return response()->json($payment);
+    }
+
+    public function events(Request $request)
+    {
+        // Get all published events, ordered by start date
+        $events = Event::where('is_published', true)
+            ->where('start_datetime', '>=', now())
+            ->with('department:id,name')
+            ->orderBy('start_datetime', 'asc')
+            ->get();
+
+        return response()->json($events);
+    }
+
+    public function projects(Request $request)
+    {
+        // Get all active/in-progress projects for public view
+        $projects = Project::whereIn('status', ['planning', 'in_progress', 'on_hold'])
+            ->with('department:id,name')
+            ->orderBy('start_date', 'desc')
+            ->get();
+
+        return response()->json($projects);
     }
 }

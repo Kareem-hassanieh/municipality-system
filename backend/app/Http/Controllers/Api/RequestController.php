@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Request as ServiceRequest;
+use App\Models\Citizen;
+use App\Notifications\RequestStatusNotification;
 use Illuminate\Http\Request;
 
 class RequestController extends Controller
@@ -14,7 +16,6 @@ class RequestController extends Controller
             $requests = ServiceRequest::with(['citizen', 'department', 'assignedTo'])->get();
             return response()->json($requests);
         } catch (\Exception $e) {
-            // Fallback to basic query if relationships fail
             $requests = ServiceRequest::all();
             return response()->json($requests);
         }
@@ -23,6 +24,7 @@ class RequestController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
+            'citizen_id' => 'nullable|integer',
             'type' => 'required|string|max:50',
             'subject' => 'required|string|max:255',
             'description' => 'nullable|string',
@@ -35,6 +37,10 @@ class RequestController extends Controller
         $validated['submission_date'] = now();
 
         $serviceRequest = ServiceRequest::create($validated);
+
+        // Send notification to citizen
+        $this->notifyCitizen($serviceRequest);
+
         return response()->json($serviceRequest, 201);
     }
 
@@ -43,13 +49,14 @@ class RequestController extends Controller
         try {
             $request->load(['citizen', 'department', 'assignedTo']);
         } catch (\Exception $e) {
-            // Continue without relationships if loading fails
         }
         return response()->json($request);
     }
 
     public function update(Request $httpRequest, ServiceRequest $request)
     {
+        $oldStatus = $request->status;
+
         $validated = $httpRequest->validate([
             'type' => 'sometimes|string|max:50',
             'subject' => 'sometimes|string|max:255',
@@ -59,12 +66,10 @@ class RequestController extends Controller
             'admin_notes' => 'nullable|string',
         ]);
 
-        // Auto-set completion_date when status changes to completed
         if ($httpRequest->has('status') && $httpRequest->status === 'completed' && !$request->completion_date) {
             $validated['completion_date'] = now();
         }
 
-        // Only update fields that are present in the request to prevent data loss
         $updateData = [];
         foreach ($validated as $key => $value) {
             if ($httpRequest->has($key)) {
@@ -72,17 +77,19 @@ class RequestController extends Controller
             }
         }
 
-        // Update the request record
         if (!empty($updateData)) {
             $request->update($updateData);
         }
 
-        // Return fresh data with relationships
+        // Send notification if status changed
+        if ($httpRequest->has('status') && $oldStatus !== $request->status) {
+            $this->notifyCitizen($request, $oldStatus);
+        }
+
         $freshRequest = $request->fresh();
         try {
             $freshRequest->load(['citizen', 'department', 'assignedTo']);
         } catch (\Exception $e) {
-            // Continue without relationships if loading fails
         }
         return response()->json($freshRequest);
     }
@@ -96,6 +103,16 @@ class RequestController extends Controller
             return response()->json([
                 'message' => 'Error deleting request: ' . $e->getMessage()
             ], 500);
+        }
+    }
+
+    private function notifyCitizen(ServiceRequest $serviceRequest, string $oldStatus = null)
+    {
+        if ($serviceRequest->citizen_id) {
+            $citizen = Citizen::with('user')->find($serviceRequest->citizen_id);
+            if ($citizen && $citizen->user) {
+                $citizen->user->notify(new RequestStatusNotification($serviceRequest, $oldStatus));
+            }
         }
     }
 }

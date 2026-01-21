@@ -7,7 +7,7 @@ import DashboardLayout from './layouts/DashboardLayout';
 import CitizenLayout from './layouts/CitizenLayout';
 
 // Auth Pages
-import Login from './pages/Login';
+import Login from './pages/login';
 import Register from './pages/Register';
 
 // Admin Pages
@@ -27,25 +27,43 @@ import MyRequests from './pages/citizen/MyRequests';
 import MyPermits from './pages/citizen/MyPermits';
 import MyPayments from './pages/citizen/MyPayments';
 import MyProfile from './pages/citizen/MyProfile';
+import MyEvents from './pages/citizen/MyEvents';
+import MyProjects from './pages/citizen/MyProjects';
+
+// Loading Component
+function LoadingScreen() {
+  return (
+    <div className="min-h-screen bg-slate-100 flex items-center justify-center">
+      <div className="text-slate-600">Loading...</div>
+    </div>
+  );
+}
+
+// Public Route - Redirect if already logged in
+function PublicRoute({ children }) {
+  const { isAuthenticated, isAdmin, loading } = useAuth();
+
+  if (loading) return <LoadingScreen />;
+
+  if (isAuthenticated) {
+    return <Navigate to={isAdmin ? "/dashboard" : "/citizen"} replace />;
+  }
+
+  return children;
+}
 
 // Admin Protected Route
 function AdminRoute({ children }) {
-  const { isAuthenticated, isAdmin, loading } = useAuth();
+  const { user, isAuthenticated, isAdmin, loading } = useAuth();
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
-        <div className="text-slate-600">Loading...</div>
-      </div>
-    );
-  }
+  if (loading) return <LoadingScreen />;
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" />;
+    return <Navigate to="/login" replace />;
   }
 
   if (!isAdmin) {
-    return <Navigate to="/citizen" />;
+    return <Navigate to="/citizen" replace />;
   }
 
   return <DashboardLayout>{children}</DashboardLayout>;
@@ -53,18 +71,16 @@ function AdminRoute({ children }) {
 
 // Citizen Protected Route
 function CitizenRoute({ children }) {
-  const { isAuthenticated, loading } = useAuth();
+  const { user, isAuthenticated, isAdmin, loading } = useAuth();
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
-        <div className="text-slate-600">Loading...</div>
-      </div>
-    );
-  }
+  if (loading) return <LoadingScreen />;
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" />;
+    return <Navigate to="/login" replace />;
+  }
+
+  if (isAdmin) {
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <CitizenLayout>{children}</CitizenLayout>;
@@ -74,27 +90,21 @@ function CitizenRoute({ children }) {
 function SmartRedirect() {
   const { isAuthenticated, isAdmin, loading } = useAuth();
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
-        <div className="text-slate-600">Loading...</div>
-      </div>
-    );
-  }
+  if (loading) return <LoadingScreen />;
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" />;
+    return <Navigate to="/login" replace />;
   }
 
-  return isAdmin ? <Navigate to="/dashboard" /> : <Navigate to="/citizen" />;
+  return <Navigate to={isAdmin ? "/dashboard" : "/citizen"} replace />;
 }
 
 function AppRoutes() {
   return (
     <Routes>
       {/* Public Routes */}
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+      <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+      <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
 
       {/* Admin Routes */}
       <Route path="/dashboard" element={<AdminRoute><Dashboard /></AdminRoute>} />
@@ -113,9 +123,12 @@ function AppRoutes() {
       <Route path="/citizen/permits" element={<CitizenRoute><MyPermits /></CitizenRoute>} />
       <Route path="/citizen/payments" element={<CitizenRoute><MyPayments /></CitizenRoute>} />
       <Route path="/citizen/profile" element={<CitizenRoute><MyProfile /></CitizenRoute>} />
+      <Route path="/citizen/events" element={<CitizenRoute><MyEvents /></CitizenRoute>} />
+      <Route path="/citizen/projects" element={<CitizenRoute><MyProjects /></CitizenRoute>} />
 
-      {/* Default - Smart Redirect */}
+      {/* Default */}
       <Route path="/" element={<SmartRedirect />} />
+      <Route path="*" element={<SmartRedirect />} />
     </Routes>
   );
 }

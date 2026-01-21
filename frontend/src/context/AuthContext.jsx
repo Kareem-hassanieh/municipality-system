@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 
 const AuthContext = createContext();
@@ -8,55 +9,54 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const verifyAuth = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        
-        if (!token) {
-          localStorage.removeItem('user');
-          setLoading(false);
-          return;
-        }
-
-        // Always verify with server to get fresh user data
-        try {
-          const response = await api.get('/user');
-          const freshUser = response.data;
-          
-          // Update with fresh data from server
-          setUser(freshUser);
-          localStorage.setItem('user', JSON.stringify(freshUser));
-        } catch (error) {
-          // Token invalid - clear everything
-          console.error('Token verification failed:', error);
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-          setUser(null);
-        }
-      } catch (error) {
-        console.error('Auth error:', error);
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        setUser(null);
-      }
-      setLoading(false);
-    };
-
-    verifyAuth();
+    checkAuth();
   }, []);
 
+  const checkAuth = async () => {
+    const token = localStorage.getItem('token');
+    
+    if (!token) {
+      setUser(null);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const response = await api.get('/user');
+      setUser(response.data);
+      localStorage.setItem('user', JSON.stringify(response.data));
+    } catch (error) {
+      console.error('Auth check failed:', error);
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      setUser(null);
+    }
+    
+    setLoading(false);
+  };
+
   const login = async (email, password) => {
+    // Clear any old data first
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setUser(null);
+
     const response = await api.post('/login', { email, password });
-    const { token, user } = response.data;
+    const { token, user: userData } = response.data;
     
     localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(user));
-    setUser(user);
+    localStorage.setItem('user', JSON.stringify(userData));
+    setUser(userData);
     
-    return user;
+    return userData;
   };
 
   const register = async (name, email, password, password_confirmation) => {
+    // Clear any old data first
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setUser(null);
+
     const response = await api.post('/register', {
       name,
       email,
@@ -64,13 +64,13 @@ export function AuthProvider({ children }) {
       password_confirmation,
       role: 'citizen',
     });
-    const { token, user } = response.data;
+    const { token, user: userData } = response.data;
     
     localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(user));
-    setUser(user);
+    localStorage.setItem('user', JSON.stringify(userData));
+    setUser(userData);
     
-    return user;
+    return userData;
   };
 
   const logout = async () => {
@@ -85,10 +85,7 @@ export function AuthProvider({ children }) {
   };
 
   const isAuthenticated = !!user;
-  
-  // Fixed: Explicitly check for admin roles
   const isAdmin = user?.role && ['admin', 'finance_officer', 'urban_planner', 'hr_manager', 'clerk'].includes(user.role);
-  
   const isCitizen = user?.role === 'citizen';
 
   return (

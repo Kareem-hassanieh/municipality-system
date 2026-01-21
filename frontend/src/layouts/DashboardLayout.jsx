@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import NotificationBell from '../components/NotificationBell';
 import {
   LayoutDashboard,
   Users,
@@ -111,18 +112,21 @@ export default function DashboardLayout({ children }) {
       {/* Main content */}
       <div className="lg:pl-64">
         {/* Top bar */}
-        <header className="sticky top-0 z-30 h-16 bg-white border-b border-slate-200 flex items-center px-4 lg:px-6">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="lg:hidden text-slate-600 hover:text-slate-900"
-          >
-            <Menu className="w-6 h-6" />
-          </button>
-          <div className="ml-4 lg:ml-0">
-            <h1 className="text-lg font-semibold text-slate-800">
-              {navigation.find((item) => item.href === location.pathname)?.name || 'Dashboard'}
-            </h1>
+        <header className="sticky top-0 z-30 h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 lg:px-6">
+          <div className="flex items-center">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="lg:hidden text-slate-600 hover:text-slate-900"
+            >
+              <Menu className="w-6 h-6" />
+            </button>
+            <div className="ml-4 lg:ml-0">
+              <h1 className="text-lg font-semibold text-slate-800">
+                {navigation.find((item) => item.href === location.pathname)?.name || 'Dashboard'}
+              </h1>
+            </div>
           </div>
+          <NotificationBell />
         </header>
 
         {/* Page content */}

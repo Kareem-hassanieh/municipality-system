@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Permit;
+use App\Models\Citizen;
+use App\Notifications\PermitStatusNotification;
 use Illuminate\Http\Request;
 
 class PermitController extends Controller
@@ -14,7 +16,6 @@ class PermitController extends Controller
             $permits = Permit::with(['citizen', 'department', 'reviewedBy'])->get();
             return response()->json($permits);
         } catch (\Exception $e) {
-            // Fallback to basic query if relationships fail
             $permits = Permit::all();
             return response()->json($permits);
         }
@@ -23,6 +24,7 @@ class PermitController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
+            'citizen_id' => 'nullable|integer',
             'type' => 'required|string|max:50',
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
@@ -36,6 +38,10 @@ class PermitController extends Controller
         $validated['is_paid'] = false;
 
         $permit = Permit::create($validated);
+
+        // Send notification to citizen
+        $this->notifyCitizen($permit);
+
         return response()->json($permit, 201);
     }
 
@@ -44,13 +50,14 @@ class PermitController extends Controller
         try {
             $permit->load(['citizen', 'department', 'reviewedBy']);
         } catch (\Exception $e) {
-            // Continue without relationships if loading fails
         }
         return response()->json($permit);
     }
 
     public function update(Request $request, Permit $permit)
     {
+        $oldStatus = $permit->status;
+
         $validated = $request->validate([
             'type' => 'sometimes|string|max:50',
             'title' => 'sometimes|string|max:255',
@@ -63,12 +70,10 @@ class PermitController extends Controller
             'rejection_reason' => 'nullable|string',
         ]);
 
-        // Auto-set issue_date when status changes to approved
         if ($request->has('status') && $request->status === 'approved' && !$permit->issue_date) {
             $validated['issue_date'] = now();
         }
 
-        // Only update fields that are present in the request to prevent data loss
         $updateData = [];
         foreach ($validated as $key => $value) {
             if ($request->has($key)) {
@@ -76,17 +81,19 @@ class PermitController extends Controller
             }
         }
 
-        // Update the permit record
         if (!empty($updateData)) {
             $permit->update($updateData);
         }
 
-        // Return fresh data with relationships
+        // Send notification if status changed
+        if ($request->has('status') && $oldStatus !== $permit->status) {
+            $this->notifyCitizen($permit, $oldStatus);
+        }
+
         $freshPermit = $permit->fresh();
         try {
             $freshPermit->load(['citizen', 'department', 'reviewedBy']);
         } catch (\Exception $e) {
-            // Continue without relationships if loading fails
         }
         return response()->json($freshPermit);
     }
@@ -100,6 +107,16 @@ class PermitController extends Controller
             return response()->json([
                 'message' => 'Error deleting permit: ' . $e->getMessage()
             ], 500);
+        }
+    }
+
+    private function notifyCitizen(Permit $permit, string $oldStatus = null)
+    {
+        if ($permit->citizen_id) {
+            $citizen = Citizen::with('user')->find($permit->citizen_id);
+            if ($citizen && $citizen->user) {
+                $citizen->user->notify(new PermitStatusNotification($permit, $oldStatus));
+            }
         }
     }
 }

@@ -30,6 +30,67 @@ export default function MyRequests() {
     });
   };
 
+  const formatDateTime = (dateString) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  // Generate timeline based on current status
+  const getTimeline = (request) => {
+    const statusOrder = ['pending', 'in_progress', 'completed'];
+    const currentIndex = statusOrder.indexOf(request.status);
+    
+    // Handle rejected/cancelled separately
+    if (request.status === 'rejected' || request.status === 'cancelled') {
+      return [
+        { 
+          status: 'Submitted', 
+          completed: true, 
+          date: request.submission_date || request.created_at,
+          icon: CheckCircle,
+          color: 'text-emerald-500'
+        },
+        { 
+          status: request.status === 'rejected' ? 'Rejected' : 'Cancelled', 
+          completed: true, 
+          date: request.updated_at,
+          icon: XCircle,
+          color: 'text-red-500'
+        },
+      ];
+    }
+
+    return [
+      { 
+        status: 'Submitted', 
+        completed: currentIndex >= 0, 
+        date: request.submission_date || request.created_at,
+        icon: currentIndex >= 0 ? CheckCircle : Clock,
+        color: currentIndex >= 0 ? 'text-emerald-500' : 'text-slate-300'
+      },
+      { 
+        status: 'In Progress', 
+        completed: currentIndex >= 1, 
+        date: currentIndex >= 1 ? request.updated_at : null,
+        icon: currentIndex >= 1 ? CheckCircle : Clock,
+        color: currentIndex >= 1 ? 'text-emerald-500' : 'text-slate-300'
+      },
+      { 
+        status: 'Completed', 
+        completed: currentIndex >= 2, 
+        date: request.completion_date,
+        icon: currentIndex >= 2 ? CheckCircle : Clock,
+        color: currentIndex >= 2 ? 'text-emerald-500' : 'text-slate-300'
+      },
+    ];
+  };
+
   useEffect(() => {
     fetchRequests();
   }, []);
@@ -295,10 +356,11 @@ export default function MyRequests() {
         </form>
       </Modal>
 
-      {/* View Request Modal */}
+      {/* View Request Modal with Timeline */}
       <Modal isOpen={isViewModalOpen} onClose={() => setIsViewModalOpen(false)} title="Request Details">
         {viewingRequest && (
-          <div className="space-y-4">
+          <div className="space-y-5">
+            {/* Request Info */}
             <div className="flex items-center gap-3">
               {getStatusIcon(viewingRequest.status)}
               <div>
@@ -308,10 +370,43 @@ export default function MyRequests() {
                 </span>
               </div>
             </div>
+
+            {/* Timeline */}
+            <div className="pt-4 border-t border-slate-200">
+              <p className="text-sm font-medium text-slate-700 mb-4">Status Timeline</p>
+              <div className="relative">
+                {getTimeline(viewingRequest).map((step, index, arr) => (
+                  <div key={index} className="flex gap-4 pb-6 last:pb-0">
+                    {/* Line and Icon */}
+                    <div className="flex flex-col items-center">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step.completed ? 'bg-emerald-50' : 'bg-slate-100'}`}>
+                        <step.icon className={`w-5 h-5 ${step.color}`} />
+                      </div>
+                      {index < arr.length - 1 && (
+                        <div className={`w-0.5 flex-1 mt-2 ${step.completed ? 'bg-emerald-200' : 'bg-slate-200'}`}></div>
+                      )}
+                    </div>
+                    {/* Content */}
+                    <div className="pt-1">
+                      <p className={`font-medium ${step.completed ? 'text-slate-900' : 'text-slate-400'}`}>
+                        {step.status}
+                      </p>
+                      <p className="text-sm text-slate-500">
+                        {step.date ? formatDateTime(step.date) : 'Pending'}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Description */}
             <div className="pt-4 border-t border-slate-200">
               <p className="text-sm text-slate-500 mb-1">Description</p>
               <p className="text-slate-800">{viewingRequest.description || 'No description provided'}</p>
             </div>
+
+            {/* Details Grid */}
             <div className="grid grid-cols-2 gap-4 text-sm pt-4 border-t border-slate-200">
               <div>
                 <p className="text-slate-500">Type</p>
@@ -321,19 +416,13 @@ export default function MyRequests() {
                 <p className="text-slate-500">Priority</p>
                 <p className="text-slate-900 capitalize">{viewingRequest.priority || 'Medium'}</p>
               </div>
-              <div>
-                <p className="text-slate-500">Submitted</p>
-                <p className="text-slate-900">{formatDate(viewingRequest.submission_date || viewingRequest.created_at)}</p>
-              </div>
-              <div>
-                <p className="text-slate-500">Completed</p>
-                <p className="text-slate-900">{formatDate(viewingRequest.completion_date) || '-'}</p>
-              </div>
             </div>
+
+            {/* Admin Notes */}
             {viewingRequest.admin_notes && (
               <div className="pt-4 border-t border-slate-200">
                 <p className="text-slate-500 text-sm">Admin Notes</p>
-                <p className="text-slate-800 text-sm mt-1">{viewingRequest.admin_notes}</p>
+                <p className="text-slate-800 text-sm mt-1 bg-slate-50 p-3 rounded-lg">{viewingRequest.admin_notes}</p>
               </div>
             )}
           </div>
