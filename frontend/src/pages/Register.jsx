@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Mail, Lock, User, Loader2 } from 'lucide-react';
+import { Mail, Lock, User, Loader2, Eye, EyeOff } from 'lucide-react';
 
 export default function Register() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [passwordConfirmation, setPasswordConfirmation] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
@@ -162,15 +164,22 @@ export default function Register() {
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value);
                     if (errors.password) setErrors({ ...errors, password: '' });
                   }}
-                  className={`w-full pl-10 pr-4 py-2.5 border rounded focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none ${errors.password ? 'border-red-500' : 'border-slate-300'}`}
+                  className={`w-full pl-10 pr-12 py-2.5 border rounded focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none ${errors.password ? 'border-red-500' : 'border-slate-300'}`}
                   placeholder="Min. 8 characters"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
               </div>
               {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
             </div>
@@ -182,15 +191,22 @@ export default function Register() {
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
                 <input
-                  type="password"
+                  type={showConfirmPassword ? 'text' : 'password'}
                   value={passwordConfirmation}
                   onChange={(e) => {
                     setPasswordConfirmation(e.target.value);
                     if (errors.passwordConfirmation) setErrors({ ...errors, passwordConfirmation: '' });
                   }}
-                  className={`w-full pl-10 pr-4 py-2.5 border rounded focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none ${errors.passwordConfirmation ? 'border-red-500' : 'border-slate-300'}`}
+                  className={`w-full pl-10 pr-12 py-2.5 border rounded focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none ${errors.passwordConfirmation ? 'border-red-500' : 'border-slate-300'}`}
                   placeholder="Confirm your password"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
               </div>
               {errors.passwordConfirmation && <p className="text-red-500 text-xs mt-1">{errors.passwordConfirmation}</p>}
             </div>
