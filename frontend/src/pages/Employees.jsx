@@ -16,6 +16,7 @@ export default function Employees() {
   const [deletingId, setDeletingId] = useState(null);
   const [editingEmployee, setEditingEmployee] = useState(null);
   const [viewingEmployee, setViewingEmployee] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     employee_id: '',
     position: '',
@@ -24,6 +25,7 @@ export default function Employees() {
     salary: '',
     is_active: true,
   });
+  const [errors, setErrors] = useState({});
 
   useEffect(() => {
     fetchEmployees();
@@ -51,9 +53,27 @@ export default function Employees() {
 
   const totalPayroll = employees.filter(e => e.is_active).reduce((sum, e) => sum + Number(e.salary || 0), 0);
 
+  // Generate next employee ID
+  const generateEmployeeId = () => {
+    const existingIds = employees.map(e => {
+      const match = (e.employee_id || '').match(/EMP-(\d+)/);
+      return match ? parseInt(match[1]) : 0;
+    });
+    const maxId = existingIds.length > 0 ? Math.max(...existingIds) : 0;
+    return `EMP-${String(maxId + 1).padStart(3, '0')}`;
+  };
+
   const openAddModal = () => {
     setEditingEmployee(null);
-    setFormData({ employee_id: '', position: '', employment_type: 'full_time', hire_date: '', salary: '', is_active: true });
+    setFormData({
+      employee_id: generateEmployeeId(),
+      position: '',
+      employment_type: 'full_time',
+      hire_date: new Date().toISOString().split('T')[0], // Default to today
+      salary: '',
+      is_active: true,
+    });
+    setErrors({});
     setIsModalOpen(true);
   };
 
@@ -67,6 +87,7 @@ export default function Employees() {
       salary: employee.salary || '',
       is_active: employee.is_active ?? true,
     });
+    setErrors({});
     setIsModalOpen(true);
   };
 
@@ -75,26 +96,82 @@ export default function Employees() {
     setIsViewModalOpen(true);
   };
 
+  const validateForm = () => {
+    const newErrors = {};
+
+    // Employee ID validation
+    if (!formData.employee_id.trim()) {
+      newErrors.employee_id = 'Employee ID is required';
+    }
+
+    // Position validation
+    if (!formData.position.trim()) {
+      newErrors.position = 'Position is required';
+    }
+
+    // Hire date validation
+    if (!formData.hire_date) {
+      newErrors.hire_date = 'Hire date is required';
+    } else {
+      const hireDate = new Date(formData.hire_date);
+      const today = new Date();
+      if (hireDate > today) {
+        newErrors.hire_date = 'Hire date cannot be in the future';
+      }
+    }
+
+    // Salary validation
+    if (!formData.salary) {
+      newErrors.salary = 'Salary is required';
+    } else if (Number(formData.salary) < 0) {
+      newErrors.salary = 'Salary cannot be negative';
+    } else if (Number(formData.salary) > 1000000) {
+      newErrors.salary = 'Please enter a valid salary';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleInputChange = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    // Clear error when user types
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: '' }));
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!validateForm()) {
+      toast.error('Please fix the errors in the form');
+      return;
+    }
+
+    setIsSubmitting(true);
+
     try {
       const dataToSend = {
         ...formData,
-        salary: formData.salary ? Number(formData.salary) : null,
-        hire_date: formData.hire_date || null,
+        salary: formData.salary ? Number(formData.salary) : 0,
+        hire_date: formData.hire_date,
       };
 
       if (editingEmployee) {
         await api.put(`/employees/${editingEmployee.id}`, dataToSend);
+        toast.success('Employee updated successfully');
       } else {
         await api.post('/employees', dataToSend);
+        toast.success('Employee added successfully');
       }
       fetchEmployees();
       setIsModalOpen(false);
-      toast.success(editingEmployee ? 'Employee updated successfully' : 'Employee added successfully');
     } catch (error) {
       console.error('Error saving employee:', error);
       toast.error(error.response?.data?.message || 'Error saving employee. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -112,6 +189,15 @@ export default function Employees() {
       console.error('Error deleting employee:', error);
       toast.error(error.response?.data?.message || 'Error deleting employee. Please try again.');
     }
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
   };
 
   if (loading) {
@@ -230,38 +316,90 @@ export default function Employees() {
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingEmployee ? 'Edit Employee' : 'Add Employee'}>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Employee ID</label>
-            <input type="text" value={formData.employee_id} onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" required placeholder="e.g., EMP-001" />
+            <label className="block text-sm font-medium text-slate-700 mb-1">Employee ID <span className="text-red-500">*</span></label>
+            <input
+              type="text"
+              value={formData.employee_id}
+              onChange={(e) => handleInputChange('employee_id', e.target.value)}
+              className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none ${errors.employee_id ? 'border-red-500' : 'border-slate-300'}`}
+              placeholder="e.g., EMP-001"
+            />
+            {errors.employee_id && <p className="text-red-500 text-xs mt-1">{errors.employee_id}</p>}
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Position</label>
-            <input type="text" value={formData.position} onChange={(e) => setFormData({ ...formData, position: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" placeholder="e.g., Department Manager" />
+            <label className="block text-sm font-medium text-slate-700 mb-1">Position <span className="text-red-500">*</span></label>
+            <input
+              type="text"
+              value={formData.position}
+              onChange={(e) => handleInputChange('position', e.target.value)}
+              className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none ${errors.position ? 'border-red-500' : 'border-slate-300'}`}
+              placeholder="e.g., Department Manager"
+            />
+            {errors.position && <p className="text-red-500 text-xs mt-1">{errors.position}</p>}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Employment Type</label>
-              <select value={formData.employment_type} onChange={(e) => setFormData({ ...formData, employment_type: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none">
+              <select
+                value={formData.employment_type}
+                onChange={(e) => handleInputChange('employment_type', e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none"
+              >
                 <option value="full_time">Full Time</option>
                 <option value="part_time">Part Time</option>
                 <option value="contract">Contract</option>
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Salary ($)</label>
-              <input type="number" value={formData.salary} onChange={(e) => setFormData({ ...formData, salary: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" />
+              <label className="block text-sm font-medium text-slate-700 mb-1">Salary ($) <span className="text-red-500">*</span></label>
+              <input
+                type="number"
+                value={formData.salary}
+                onChange={(e) => handleInputChange('salary', e.target.value)}
+                className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none ${errors.salary ? 'border-red-500' : 'border-slate-300'}`}
+                placeholder="e.g., 5000"
+                min="0"
+              />
+              {errors.salary && <p className="text-red-500 text-xs mt-1">{errors.salary}</p>}
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Hire Date</label>
-            <input type="date" value={formData.hire_date} onChange={(e) => setFormData({ ...formData, hire_date: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" />
+            <label className="block text-sm font-medium text-slate-700 mb-1">Hire Date <span className="text-red-500">*</span></label>
+            <input
+              type="date"
+              value={formData.hire_date}
+              onChange={(e) => handleInputChange('hire_date', e.target.value)}
+              max={new Date().toISOString().split('T')[0]}
+              className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none ${errors.hire_date ? 'border-red-500' : 'border-slate-300'}`}
+            />
+            {errors.hire_date && <p className="text-red-500 text-xs mt-1">{errors.hire_date}</p>}
           </div>
           <div className="flex items-center gap-2">
-            <input type="checkbox" id="is_active" checked={formData.is_active} onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })} className="w-4 h-4 rounded border-slate-300" />
+            <input
+              type="checkbox"
+              id="is_active"
+              checked={formData.is_active}
+              onChange={(e) => handleInputChange('is_active', e.target.checked)}
+              className="w-4 h-4 rounded border-slate-300"
+            />
             <label htmlFor="is_active" className="text-sm font-medium text-slate-700">Active Employee</label>
           </div>
           <div className="flex gap-3 pt-4">
-            <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition">Cancel</button>
-            <button type="submit" className="flex-1 px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-900 transition">{editingEmployee ? 'Update' : 'Add'}</button>
+            <button
+              type="button"
+              onClick={() => setIsModalOpen(false)}
+              disabled={isSubmitting}
+              className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="flex-1 px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-900 transition disabled:opacity-50"
+            >
+              {isSubmitting ? 'Saving...' : (editingEmployee ? 'Update' : 'Add')}
+            </button>
           </div>
         </form>
       </Modal>
@@ -290,7 +428,7 @@ export default function Employees() {
               </div>
               <div>
                 <p className="text-slate-500">Hire Date</p>
-                <p className="text-slate-900">{viewingEmployee.hire_date || '-'}</p>
+                <p className="text-slate-900">{formatDate(viewingEmployee.hire_date)}</p>
               </div>
               <div>
                 <p className="text-slate-500">Status</p>

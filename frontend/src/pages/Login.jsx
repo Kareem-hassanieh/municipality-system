@@ -170,7 +170,7 @@ export default function Login() {
             <p className="text-xs font-medium text-slate-500 mb-2">Demo Credentials:</p>
             <div className="text-xs text-slate-600 space-y-1">
               <p><strong>Admin:</strong> admin@municipality.com / password123</p>
-              <p><strong>Citizen:</strong> citizen@municipality.com / password123</p>
+              <p><strong>Citizen:</strong> ashraf@gmail.com / 12345678</p>
             </div>
           </div>
         </div>

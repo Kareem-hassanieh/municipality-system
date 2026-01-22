@@ -240,7 +240,7 @@ class CitizenPortalController extends Controller
     public function projects(Request $request)
     {
         // Get all active/in-progress projects for public view
-        $projects = Project::whereIn('status', ['planning', 'in_progress', 'on_hold'])
+        $projects = Project::whereIn('status', ['planned', 'in_progress', 'on_hold'])
             ->with('department:id,name')
             ->orderBy('start_date', 'desc')
             ->get();

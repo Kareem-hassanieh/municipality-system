@@ -32,7 +32,7 @@ export default function MyProjects() {
 
   const getStatusStyle = (status) => {
     const styles = {
-      planning: 'bg-purple-50 text-purple-700',
+      planned: 'bg-purple-50 text-purple-700',
       in_progress: 'bg-blue-50 text-blue-700',
       on_hold: 'bg-amber-50 text-amber-700',
       completed: 'bg-emerald-50 text-emerald-700',

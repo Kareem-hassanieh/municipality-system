@@ -16,6 +16,8 @@ export default function Events() {
   const [deletingId, setDeletingId] = useState(null);
   const [editingEvent, setEditingEvent] = useState(null);
   const [viewingEvent, setViewingEvent] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState({});
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -36,10 +38,10 @@ export default function Events() {
       const response = await api.get('/events');
       const data = response.data || [];
       setEvents(Array.isArray(data) ? data : []);
-      setLoading(false);
     } catch (error) {
       console.error('Error fetching events:', error);
       setEvents([]);
+    } finally {
       setLoading(false);
     }
   };
@@ -53,7 +55,17 @@ export default function Events() {
 
   const openAddModal = () => {
     setEditingEvent(null);
-    setFormData({ title: '', description: '', type: 'community', location: '', start_datetime: '', end_datetime: '', target_audience: 'public', is_published: true });
+    setFormData({
+      title: '',
+      description: '',
+      type: 'community',
+      location: '',
+      start_datetime: '',
+      end_datetime: '',
+      target_audience: 'public',
+      is_published: true,
+    });
+    setErrors({});
     setIsModalOpen(true);
   };
 
@@ -69,6 +81,7 @@ export default function Events() {
       target_audience: event.target_audience || 'public',
       is_published: event.is_published ?? true,
     });
+    setErrors({});
     setIsModalOpen(true);
   };
 
@@ -77,26 +90,73 @@ export default function Events() {
     setIsViewModalOpen(true);
   };
 
+  const handleChange = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: '' }));
+    }
+  };
+
+  const validate = () => {
+    const errs = {};
+
+    if (!formData.title.trim()) {
+      errs.title = 'Event title is required';
+    }
+
+    if (!formData.location.trim()) {
+      errs.location = 'Location is required';
+    }
+
+    if (!formData.start_datetime) {
+      errs.start_datetime = 'Start date & time is required';
+    }
+
+    if (!formData.end_datetime) {
+      errs.end_datetime = 'End date & time is required';
+    }
+
+    if (formData.start_datetime && formData.end_datetime) {
+      if (new Date(formData.end_datetime) <= new Date(formData.start_datetime)) {
+        errs.end_datetime = 'End time must be after start time';
+      }
+    }
+
+    setErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!validate()) {
+      toast.error('Please fix the errors in the form');
+      return;
+    }
+
+    setIsSubmitting(true);
+
     try {
       const dataToSend = {
         ...formData,
-        start_datetime: formData.start_datetime || null,
-        end_datetime: formData.end_datetime || null,
+        start_datetime: formData.start_datetime,
+        end_datetime: formData.end_datetime,
       };
 
       if (editingEvent) {
         await api.put(`/events/${editingEvent.id}`, dataToSend);
+        toast.success('Event updated successfully');
       } else {
         await api.post('/events', dataToSend);
+        toast.success('Event created successfully');
       }
       fetchEvents();
       setIsModalOpen(false);
-      toast.success(editingEvent ? 'Event updated successfully' : 'Event created successfully');
     } catch (error) {
       console.error('Error saving event:', error);
       toast.error(error.response?.data?.message || 'Error saving event. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -117,7 +177,13 @@ export default function Events() {
   };
 
   const getTypeIcon = (type) => {
-    return type === 'meeting' ? '📋' : type === 'community' ? '🎉' : type === 'training' ? '📚' : '📢';
+    const icons = {
+      meeting: '📋',
+      community: '🎉',
+      training: '📚',
+      announcement: '📢',
+    };
+    return icons[type] || '📢';
   };
 
   const formatDateTime = (datetime) => {
@@ -220,17 +286,25 @@ export default function Events() {
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingEvent ? 'Edit Event' : 'Create Event'}>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Event Title</label>
-            <input type="text" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" required />
+            <label className="block text-sm font-medium text-slate-700 mb-1">Event Title <span className="text-red-500">*</span></label>
+            <input
+              type="text"
+              value={formData.title}
+              onChange={(e) => handleChange('title', e.target.value)}
+              placeholder="Enter event title"
+              className={`w-full px-3 py-2 border rounded-lg text-sm outline-none ${errors.title ? 'border-red-500' : 'border-slate-300'}`}
+            />
+            {errors.title && <p className="text-red-500 text-xs mt-1">{errors.title}</p>}
           </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
-            <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" rows={3} />
-          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Type</label>
-              <select value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none">
+              <select
+                value={formData.type}
+                onChange={(e) => handleChange('type', e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none"
+              >
                 <option value="community">Community</option>
                 <option value="meeting">Meeting</option>
                 <option value="training">Training</option>
@@ -239,34 +313,92 @@ export default function Events() {
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Audience</label>
-              <select value={formData.target_audience} onChange={(e) => setFormData({ ...formData, target_audience: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none">
+              <select
+                value={formData.target_audience}
+                onChange={(e) => handleChange('target_audience', e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none"
+              >
                 <option value="public">Public</option>
                 <option value="staff">Staff</option>
                 <option value="department">Department</option>
               </select>
             </div>
           </div>
+
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Location</label>
-            <input type="text" value={formData.location} onChange={(e) => setFormData({ ...formData, location: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" />
+            <label className="block text-sm font-medium text-slate-700 mb-1">Location <span className="text-red-500">*</span></label>
+            <input
+              type="text"
+              value={formData.location}
+              onChange={(e) => handleChange('location', e.target.value)}
+              placeholder="Enter location"
+              className={`w-full px-3 py-2 border rounded-lg text-sm outline-none ${errors.location ? 'border-red-500' : 'border-slate-300'}`}
+            />
+            {errors.location && <p className="text-red-500 text-xs mt-1">{errors.location}</p>}
           </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Start Date & Time</label>
-              <input type="datetime-local" value={formData.start_datetime} onChange={(e) => setFormData({ ...formData, start_datetime: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" />
+              <label className="block text-sm font-medium text-slate-700 mb-1">Start <span className="text-red-500">*</span></label>
+              <input
+                type="datetime-local"
+                value={formData.start_datetime}
+                onChange={(e) => handleChange('start_datetime', e.target.value)}
+                className={`w-full px-3 py-2 border rounded-lg text-sm outline-none ${errors.start_datetime ? 'border-red-500' : 'border-slate-300'}`}
+              />
+              {errors.start_datetime && <p className="text-red-500 text-xs mt-1">{errors.start_datetime}</p>}
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">End Date & Time</label>
-              <input type="datetime-local" value={formData.end_datetime} onChange={(e) => setFormData({ ...formData, end_datetime: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none" />
+              <label className="block text-sm font-medium text-slate-700 mb-1">End <span className="text-red-500">*</span></label>
+              <input
+                type="datetime-local"
+                value={formData.end_datetime}
+                onChange={(e) => handleChange('end_datetime', e.target.value)}
+                min={formData.start_datetime}
+                className={`w-full px-3 py-2 border rounded-lg text-sm outline-none ${errors.end_datetime ? 'border-red-500' : 'border-slate-300'}`}
+              />
+              {errors.end_datetime && <p className="text-red-500 text-xs mt-1">{errors.end_datetime}</p>}
             </div>
           </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
+            <textarea
+              value={formData.description}
+              onChange={(e) => handleChange('description', e.target.value)}
+              placeholder="Event description (optional)"
+              rows={2}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none resize-none"
+            />
+          </div>
+
           <div className="flex items-center gap-2">
-            <input type="checkbox" id="is_published" checked={formData.is_published} onChange={(e) => setFormData({ ...formData, is_published: e.target.checked })} className="w-4 h-4 rounded border-slate-300" />
+            <input
+              type="checkbox"
+              id="is_published"
+              checked={formData.is_published}
+              onChange={(e) => handleChange('is_published', e.target.checked)}
+              className="w-4 h-4 rounded border-slate-300"
+            />
             <label htmlFor="is_published" className="text-sm font-medium text-slate-700">Publish Event</label>
           </div>
+
           <div className="flex gap-3 pt-4">
-            <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition">Cancel</button>
-            <button type="submit" className="flex-1 px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-900 transition">{editingEvent ? 'Update' : 'Create'}</button>
+            <button
+              type="button"
+              onClick={() => setIsModalOpen(false)}
+              disabled={isSubmitting}
+              className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="flex-1 px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-900 transition disabled:opacity-50"
+            >
+              {isSubmitting ? 'Saving...' : (editingEvent ? 'Update' : 'Create')}
+            </button>
           </div>
         </form>
       </Modal>

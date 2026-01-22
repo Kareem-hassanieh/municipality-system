@@ -10,6 +10,16 @@ export default function MyPayments() {
   const [filter, setFilter] = useState('all');
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
   const [payingItem, setPayingItem] = useState(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  
+  // Payment form state
+  const [cardForm, setCardForm] = useState({
+    cardNumber: '',
+    expiry: '',
+    cvv: '',
+    cardholderName: ''
+  });
+  const [errors, setErrors] = useState({});
 
   const formatDate = (dateString) => {
     if (!dateString) return '-';
@@ -140,22 +150,118 @@ export default function MyPayments() {
 
   const openPayModal = (payment) => {
     setPayingItem(payment);
+    setCardForm({ cardNumber: '', expiry: '', cvv: '', cardholderName: '' });
+    setErrors({});
     setIsPayModalOpen(true);
+  };
+
+  // Format card number with spaces
+  const formatCardNumber = (value) => {
+    const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
+    const matches = v.match(/\d{4,16}/g);
+    const match = (matches && matches[0]) || '';
+    const parts = [];
+    for (let i = 0, len = match.length; i < len; i += 4) {
+      parts.push(match.substring(i, i + 4));
+    }
+    return parts.length ? parts.join(' ') : v;
+  };
+
+  // Format expiry date
+  const formatExpiry = (value) => {
+    const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
+    if (v.length >= 2) {
+      return v.substring(0, 2) + '/' + v.substring(2, 4);
+    }
+    return v;
+  };
+
+  const handleCardChange = (field, value) => {
+    let formattedValue = value;
+    
+    if (field === 'cardNumber') {
+      formattedValue = formatCardNumber(value);
+    } else if (field === 'expiry') {
+      formattedValue = formatExpiry(value.replace('/', ''));
+    } else if (field === 'cvv') {
+      formattedValue = value.replace(/[^0-9]/g, '').substring(0, 4);
+    }
+    
+    setCardForm(prev => ({ ...prev, [field]: formattedValue }));
+    
+    // Clear error when user types
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: '' }));
+    }
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+    
+    // Card number validation (16 digits)
+    const cardDigits = cardForm.cardNumber.replace(/\s/g, '');
+    if (!cardDigits) {
+      newErrors.cardNumber = 'Card number is required';
+    } else if (cardDigits.length !== 16) {
+      newErrors.cardNumber = 'Card number must be 16 digits';
+    }
+    
+    // Expiry validation
+    if (!cardForm.expiry) {
+      newErrors.expiry = 'Expiry date is required';
+    } else {
+      const [month, year] = cardForm.expiry.split('/');
+      const currentYear = new Date().getFullYear() % 100;
+      const currentMonth = new Date().getMonth() + 1;
+      
+      if (!month || !year || month > 12 || month < 1) {
+        newErrors.expiry = 'Invalid expiry date';
+      } else if (parseInt(year) < currentYear || (parseInt(year) === currentYear && parseInt(month) < currentMonth)) {
+        newErrors.expiry = 'Card has expired';
+      }
+    }
+    
+    // CVV validation (3-4 digits)
+    if (!cardForm.cvv) {
+      newErrors.cvv = 'CVV is required';
+    } else if (cardForm.cvv.length < 3) {
+      newErrors.cvv = 'CVV must be 3-4 digits';
+    }
+    
+    // Cardholder name validation
+    if (!cardForm.cardholderName.trim()) {
+      newErrors.cardholderName = 'Cardholder name is required';
+    } else if (cardForm.cardholderName.trim().length < 3) {
+      newErrors.cardholderName = 'Please enter a valid name';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handlePay = async () => {
     if (!payingItem) return;
+    
+    if (!validateForm()) {
+      toast.error('Please fix the errors in the form');
+      return;
+    }
 
+    setIsProcessing(true);
+    
     try {
       await api.post(`/my/payments/${payingItem.id}/pay`, {
         payment_method: 'card'
       });
-      toast.success('Payment completed successfully');
+      toast.success('Payment completed successfully!');
       setIsPayModalOpen(false);
+      setCardForm({ cardNumber: '', expiry: '', cvv: '', cardholderName: '' });
       fetchPayments();
     } catch (error) {
       console.error('Error processing payment:', error);
       toast.error(error.response?.data?.message || 'Error processing payment. Please try again.');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -290,53 +396,78 @@ export default function MyPayments() {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Card Number</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Card Number <span className="text-red-500">*</span></label>
                 <input
                   type="text"
+                  value={cardForm.cardNumber}
+                  onChange={(e) => handleCardChange('cardNumber', e.target.value)}
                   placeholder="4242 4242 4242 4242"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none"
+                  maxLength={19}
+                  className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none ${
+                    errors.cardNumber ? 'border-red-500' : 'border-slate-300'
+                  }`}
                 />
+                {errors.cardNumber && <p className="text-red-500 text-xs mt-1">{errors.cardNumber}</p>}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Expiry</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Expiry <span className="text-red-500">*</span></label>
                   <input
                     type="text"
+                    value={cardForm.expiry}
+                    onChange={(e) => handleCardChange('expiry', e.target.value)}
                     placeholder="MM/YY"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none"
+                    maxLength={5}
+                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none ${
+                      errors.expiry ? 'border-red-500' : 'border-slate-300'
+                    }`}
                   />
+                  {errors.expiry && <p className="text-red-500 text-xs mt-1">{errors.expiry}</p>}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">CVV</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">CVV <span className="text-red-500">*</span></label>
                   <input
                     type="text"
+                    value={cardForm.cvv}
+                    onChange={(e) => handleCardChange('cvv', e.target.value)}
                     placeholder="123"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none"
+                    maxLength={4}
+                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none ${
+                      errors.cvv ? 'border-red-500' : 'border-slate-300'
+                    }`}
                   />
+                  {errors.cvv && <p className="text-red-500 text-xs mt-1">{errors.cvv}</p>}
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Cardholder Name</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Cardholder Name <span className="text-red-500">*</span></label>
                 <input
                   type="text"
+                  value={cardForm.cardholderName}
+                  onChange={(e) => handleCardChange('cardholderName', e.target.value)}
                   placeholder="John Doe"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none"
+                  className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none ${
+                    errors.cardholderName ? 'border-red-500' : 'border-slate-300'
+                  }`}
                 />
+                {errors.cardholderName && <p className="text-red-500 text-xs mt-1">{errors.cardholderName}</p>}
               </div>
             </div>
 
             <div className="flex gap-3 pt-4">
               <button
                 onClick={() => setIsPayModalOpen(false)}
-                className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition"
+                disabled={isProcessing}
+                className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handlePay}
-                className="flex-1 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition"
+                disabled={isProcessing}
+                className="flex-1 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition disabled:opacity-50"
               >
-                Pay ${Number(payingItem.amount || 0).toLocaleString()}
+                {isProcessing ? 'Processing...' : `Pay $${Number(payingItem.amount || 0).toLocaleString()}`}
               </button>
             </div>
           </div>
