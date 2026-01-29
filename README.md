@@ -24,6 +24,12 @@ Make sure you have these installed:
 3. Open **VS Code** → File → Open Folder → select the extracted folder.
 4. Open the terminal in VS Code: **View → Terminal** (or press `` Ctrl + ` ``)
 
+---
+
+**OR**
+
+---
+
 ### Method B: GitHub Clone
 
 Open PowerShell and run:
@@ -33,6 +39,8 @@ git clone https://github.com/Kareem-hassanieh/municipality-system.git
 cd municipality-system
 code .
 ```
+
+> After VS Code opens, use the terminal inside VS Code (**View → Terminal**) for the remaining steps.
 
 ---
 
@@ -97,9 +105,10 @@ php artisan key:generate
 
 ## 5) Configure Database in .env
 
-Open the file `backend/.env` and make sure these lines are correct:
+Open the file `backend/.env` and look for **# Database Configuration**. Make sure these lines are correct:
 
 ```
+# Database Configuration
 DB_CONNECTION=mysql
 DB_HOST=127.0.0.1
 DB_PORT=3306

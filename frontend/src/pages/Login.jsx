@@ -64,7 +64,7 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex">
-      {/* Left Side - Branding */}
+     
       <div className="hidden lg:flex lg:w-1/2 bg-slate-900 text-white p-12 flex-col justify-between">
         <div>
           <h1 className="text-2xl font-bold">Municipality</h1>
@@ -83,7 +83,7 @@ export default function Login() {
         </p>
       </div>
 
-      {/* Right Side - Login Form */}
+     
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
         <div className="w-full max-w-md">
           <div className="lg:hidden mb-8">
@@ -165,12 +165,12 @@ export default function Login() {
             </Link>
           </p>
 
-          {/* Demo Credentials */}
+          
           <div className="mt-8 p-4 bg-slate-50 rounded-lg">
             <p className="text-xs font-medium text-slate-500 mb-2">Demo Credentials:</p>
             <div className="text-xs text-slate-600 space-y-1">
               <p><strong>Admin:</strong> admin@municipality.com / password123</p>
-              <p><strong>Citizen:</strong> ashraf@gmail.com / 12345678</p>
+              
             </div>
           </div>
         </div>
