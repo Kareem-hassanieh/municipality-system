@@ -26,15 +26,15 @@ Make sure you have these installed:
 
 ### Method B: GitHub Clone
 
-Open PowerShell and run:
+1. Create a new folder anywhere (Desktop is fine).
+2. Open **VS Code** → File → Open Folder → select the folder you created.
+3. Open the terminal in VS Code: **View → Terminal** (or press `` Ctrl + ` ``)
+4. Run:
 
 ```powershell
 git clone https://github.com/Kareem-hassanieh/municipality-system.git
 cd municipality-system
-code .
 ```
-
-> After VS Code opens, use the terminal inside VS Code (**View → Terminal**) for the remaining steps.
 
 ---
 
