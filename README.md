@@ -24,12 +24,6 @@ Make sure you have these installed:
 3. Open **VS Code** → File → Open Folder → select the extracted folder.
 4. Open the terminal in VS Code: **View → Terminal** (or press `` Ctrl + ` ``)
 
----
-
-**OR**
-
----
-
 ### Method B: GitHub Clone
 
 Open PowerShell and run:
@@ -39,8 +33,6 @@ git clone https://github.com/Kareem-hassanieh/municipality-system.git
 cd municipality-system
 code .
 ```
-
-> After VS Code opens, use the terminal inside VS Code (**View → Terminal**) for the remaining steps.
 
 ---
 
