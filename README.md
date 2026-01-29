@@ -17,14 +17,7 @@ Make sure you have these installed:
 
 ## 1) Get the Project
 
-### Method A: ZIP File
-
-1. Download the ZIP file.
-2. Extract it anywhere (Desktop is fine).
-3. Open **VS Code** → File → Open Folder → select the extracted folder.
-4. Open the terminal in VS Code: **View → Terminal** (or press `` Ctrl + ` ``)
-
-### Method B: GitHub Clone
+### Method A: GitHub Clone
 
 1. Create a new folder anywhere (Desktop is fine).
 2. Open **VS Code** → File → Open Folder → select the folder you created.
@@ -38,6 +31,13 @@ code .
 ```
 
 > A new VS Code window will open with the project. Use that window for the remaining steps.
+
+### Method B: ZIP File
+
+1. Download the ZIP file.
+2. Extract it anywhere (Desktop is fine).
+3. Open **VS Code** → File → Open Folder → select the extracted folder.
+4. Open the terminal in VS Code: **View → Terminal** (or press `` Ctrl + ` ``)
 
 ---
 
