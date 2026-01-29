@@ -31,7 +31,7 @@ Make sure you have these installed:
 3. Open the terminal in VS Code: **View → Terminal** (or press `` Ctrl + ` ``)
 4. Run:
 
-```powershell
+```
 git clone https://github.com/Kareem-hassanieh/municipality-system.git
 cd municipality-system
 code .
@@ -60,7 +60,7 @@ code .
 3. In "Create database", type: `municipality_db`
 4. Click **Create**.
 
-> **Note:** If `municipality_db` already exists, create a different name and update it in `backend/.env` later.
+> **Note:** If `municipality_db` already exists, create a different name and update `DB_DATABASE=` in `backend/.env` later (after Step 4).
 
 ---
 
@@ -70,31 +70,31 @@ In the VS Code terminal, run these commands:
 
 ### Step 1: Go to backend folder
 
-```powershell
+```
 cd backend
 ```
 
 ### Step 2: Install PHP dependencies
 
-```powershell
+```
 composer install
 ```
 
 ### Step 3: Create .env file
 
 **If you are using PowerShell:**
-```powershell
+```
 Copy-Item .env.example .env
 ```
 
 **If you are using macOS, Linux, or Git Bash:**
-```bash
+```
 cp .env.example .env
 ```
 
 ### Step 4: Generate Laravel app key
 
-```powershell
+```
 php artisan key:generate
 ```
 
@@ -125,11 +125,11 @@ DB_PASSWORD=
 
 Still in the `backend/` folder, run:
 
-```powershell
+```
 php artisan migrate
 ```
 
-```powershell
+```
 php artisan db:seed
 ```
 
@@ -157,7 +157,7 @@ User::create([
 
 In the `backend/` folder, run:
 
-```powershell
+```
 php artisan tinker
 ```
 
@@ -187,7 +187,7 @@ Just register through the website at: http://localhost:5173/register
 
 Still in `backend/`, run:
 
-```powershell
+```
 php artisan serve
 ```
 
@@ -207,19 +207,19 @@ Open a **new terminal** in VS Code (click the **+** button in the terminal panel
 
 From the project root folder:
 
-```powershell
+```
 cd frontend
 ```
 
 ### Step 2: Install Node dependencies
 
-```powershell
+```
 npm install
 ```
 
 ### Step 3: Start the frontend
 
-```powershell
+```
 npm run dev
 ```
 
@@ -265,3 +265,15 @@ If artisan fails with "vendor/autoload.php not found":
 ### E) "php" or "composer" not recognized
 - Make sure PHP and Composer are installed and added to your system PATH.
 - Restart your terminal after installing.
+
+### F) Composer install fails or is very slow
+If you see "zip extension missing" or the download times out:
+
+**Solution 1:** Use **Git Bash** instead of PowerShell (Git Bash has built-in unzip support).
+
+**Solution 2:** Enable the zip extension in PHP:
+1. Open `C:\xampp\php\php.ini` in a text editor
+2. Find `;extension=zip`
+3. Remove the `;` to make it `extension=zip`
+4. Save and restart XAMPP
+5. Run `composer install` again
