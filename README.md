@@ -60,7 +60,7 @@ code .
 3. In "Create database", type: `municipality_db`
 4. Click **Create**.
 
-> **Note:** If `municipality_db` already exists, create a different name and update `DB_DATABASE=` in `backend/.env.example` before Step 4.
+> **Note:** If `municipality_db` already exists, just create a different name.
 
 ---
 
