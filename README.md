@@ -20,8 +20,8 @@ Make sure you have these installed:
 ### Method A: GitHub Clone
 
 1. Create a new folder anywhere (Desktop is fine).
-2. Open **VS Code** → File → Open Folder → select the folder you created.
-3. Open the terminal in VS Code: **View → Terminal** (or press `` Ctrl + ` ``)
+2. Open **VS Code** -> File → Open Folder -> select the folder you created.
+3. Open the terminal in VS Code: **View -> Terminal** (or press `` Ctrl + ` ``)
 4. Run:
 
 ```
@@ -36,8 +36,8 @@ code .
 
 1. Download the ZIP file.
 2. Extract it anywhere (Desktop is fine).
-3. Open **VS Code** → File → Open Folder → select the extracted folder.
-4. Open the terminal in VS Code: **View → Terminal** (or press `` Ctrl + ` ``)
+3. Open **VS Code** -> File -> Open Folder -> select the extracted folder.
+4. Open the terminal in VS Code: **View -> Terminal** (or press `` Ctrl + ` ``)
 
 ---
 
