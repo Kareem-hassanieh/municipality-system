@@ -34,7 +34,10 @@ Make sure you have these installed:
 ```powershell
 git clone https://github.com/Kareem-hassanieh/municipality-system.git
 cd municipality-system
+code .
 ```
+
+> A new VS Code window will open with the project. Use that window for the remaining steps.
 
 ---
 
