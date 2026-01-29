@@ -60,7 +60,7 @@ code .
 3. In "Create database", type: `municipality_db`
 4. Click **Create**.
 
-> **Note:** If `municipality_db` already exists, create a different name and update `DB_DATABASE=` in `backend/.env` later (after Step 4).
+> **Note:** If `municipality_db` already exists, create a different name and update `DB_DATABASE=` in `backend/.env.example` before Step 4.
 
 ---
 
@@ -177,12 +177,6 @@ Type `exit` to close Tinker.
 
 ---
 
-### Want to create a Citizen?
-
-Just register through the website at: http://localhost:5173/register
-
----
-
 ## 7) Start the Backend Server
 
 Still in `backend/`, run:
@@ -240,6 +234,12 @@ Open your browser:
 - Citizens can register at: http://localhost:5173/register
 
 > **Tip:** To test both Admin and Citizen at the same time, open one in a normal tab and the other in an **Incognito/Private window**.
+
+---
+
+### Want to create a Citizen?
+
+Just register through the website at: http://localhost:5173/register
 
 ---
 
