@@ -6,13 +6,12 @@ This file contains the steps needed to run the project on your laptop.
 
 ## 0) Requirements
 
-Install these first:
+Make sure you have these installed:
 
 - **XAMPP** (includes Apache + MySQL + phpMyAdmin)
 - **PHP >= 8.2**
 - **Composer** (https://getcomposer.org)
 - **Node.js >= 16 + npm** (https://nodejs.org)
-- **Git** (only if using the GitHub method)
 
 ---
 
@@ -24,12 +23,11 @@ Install these first:
 2. Extract it anywhere (Desktop is fine).
 3. Open the extracted folder (it should contain `backend/` and `frontend/`).
 
-### Method B (Alternative): GitHub Clone
+### Method B: GitHub Clone
 
-1. Open a terminal.
-2. Run:
+Open PowerShell and run:
 
-```bash
+```powershell
 git clone https://github.com/Kareem-hassanieh/municipality-system.git
 cd municipality-system
 code .
@@ -37,17 +35,13 @@ code .
 
 ---
 
-## 2) Start XAMPP Services (IMPORTANT)
+## 2) Start XAMPP Services
 
 1. Open **XAMPP Control Panel**
 2. Click **Start** next to:
    - **Apache**
    - **MySQL**
 3. Make sure both show **Running** (green).
-
-> **Why?**
-> - Apache is needed to open phpMyAdmin in the browser.
-> - MySQL is needed so Laravel can connect to the database.
 
 ---
 
@@ -58,7 +52,7 @@ code .
 3. In "Create database", type: `municipality_db`
 4. Click **Create**.
 
- Note: If a database named `municipality_db` already exists, you  create a different name (then update `backend/.env` later).
+> **Note:** If `municipality_db` already exists, create a different name and update it in `backend/.env` later.
 
 ---
 
@@ -68,36 +62,25 @@ Open a terminal inside the project folder (the folder that contains `backend/` a
 
 ### Step 1: Go to backend folder
 
-```bash
+```powershell
 cd backend
 ```
 
 ### Step 2: Install PHP dependencies
 
-```bash
+```powershell
 composer install
 ```
 
 ### Step 3: Create .env file
 
-**Git Bash / macOS / Linux:**
-```bash
-cp .env.example .env
-```
-
-**Windows Command Prompt (cmd):**
-```bash
-copy .env.example .env
-```
-
-**Windows PowerShell:**
-```bash
+```powershell
 Copy-Item .env.example .env
 ```
 
 ### Step 4: Generate Laravel app key
 
-```bash
+```powershell
 php artisan key:generate
 ```
 
@@ -127,11 +110,11 @@ DB_PASSWORD=
 
 Still in the `backend/` folder, run:
 
-```bash
+```powershell
 php artisan migrate
 ```
 
-```bash
+```powershell
 php artisan db:seed
 ```
 
@@ -148,7 +131,7 @@ This creates the database tables and an admin account:
 
 Still in `backend/`, run:
 
-```bash
+```powershell
 php artisan serve
 ```
 
@@ -166,19 +149,19 @@ Open a **NEW terminal** (do NOT stop the backend terminal).
 
 From the project root folder:
 
-```bash
+```powershell
 cd frontend
 ```
 
 ### Step 2: Install Node dependencies
 
-```bash
+```powershell
 npm install
 ```
 
 ### Step 3: Start the frontend
 
-```bash
+```powershell
 npm run dev
 ```
 
