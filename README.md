@@ -127,12 +127,53 @@ php artisan migrate
 php artisan db:seed
 ```
 
-This creates the database tables and an admin account:
+> **Note:** The `db:seed` command creates an admin account automatically (defined in `database/seeders/DatabaseSeeder.php`) with the following code:
+
+```php
+User::create([
+    'name' => 'Admin',
+    'email' => 'admin@municipality.com',
+    'password' => 'password123',
+    'role' => 'admin',
+]);
+```
 
 | Field    | Value                    |
 |----------|--------------------------|
 | Email    | admin@municipality.com   |
 | Password | password123              |
+
+---
+
+### Want to create a new Admin?
+
+**Option A: Using Tinker**
+
+In the `backend/` folder, run:
+
+```powershell
+php artisan tinker
+```
+
+Then type:
+
+```php
+User::create(['name' => 'New Admin', 'email' => 'newadmin@example.com', 'password' => 'password123', 'role' => 'admin']);
+```
+
+Type `exit` to close Tinker.
+
+**Option B: Edit the Seeder**
+
+1. Open `database/seeders/DatabaseSeeder.php`
+2. Add another `User::create([...])` with the new admin details
+3. Run `php artisan db:seed` again
+
+---
+
+### Want to create a Citizen?
+
+Just register through the website at: http://localhost:5173/register
 
 ---
 
@@ -191,6 +232,8 @@ Open your browser:
 
 ### Citizen Portal
 - Citizens can register at: http://localhost:5173/register
+
+> **Tip:** To test both Admin and Citizen at the same time, open one in a normal tab and the other in an **Incognito/Private window**.
 
 ---
 
