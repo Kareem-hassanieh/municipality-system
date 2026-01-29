@@ -105,7 +105,7 @@ php artisan key:generate
 
 ## 5) Configure Database in .env
 
-Open the file `backend/.env` and look for **# Database Configuration**. Make sure these lines are correct:
+Open the file `backend/.env` and look for **# Database Configuration**. Ignore other settings and just make sure these lines are correct:
 
 ```
 # Database Configuration
