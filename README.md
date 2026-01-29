@@ -77,12 +77,12 @@ composer install
 
 ### Step 3: Create .env file
 
-**PowerShell:**
+**If you are using PowerShell:**
 ```powershell
 Copy-Item .env.example .env
 ```
 
-**macOS / Linux / Git Bash:**
+**If you are using macOS, Linux, or Git Bash:**
 ```bash
 cp .env.example .env
 ```
