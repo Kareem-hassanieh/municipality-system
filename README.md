@@ -43,6 +43,8 @@ code .
    - **MySQL**
 3. Make sure both show **Running** (green).
 
+> **Note:** Apache is needed to open phpMyAdmin in the browser, and MySQL is needed for the database connection.
+
 ---
 
 ## 3) Create the Database
@@ -74,8 +76,14 @@ composer install
 
 ### Step 3: Create .env file
 
+**PowerShell:**
 ```powershell
 Copy-Item .env.example .env
+```
+
+**macOS / Linux / Git Bash:**
+```bash
+cp .env.example .env
 ```
 
 ### Step 4: Generate Laravel app key
